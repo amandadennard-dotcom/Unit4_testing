@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>How to Test AI-Generated Loop Code</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Nunito:wght@700;800;900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; font-family: 'DM Sans', sans-serif; background: #0f1117; color: #e2e8f0; overflow: hidden; }
+
+  .screen { display: none; width: 100%; height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ── INTRO SCREEN ── */
+  #screen-intro {
+    background: linear-gradient(135deg, #0f1117 0%, #1a1f2e 50%, #0f1117 100%);
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+  #screen-intro::before {
+    content: '';
+    position: absolute;
+    top: -100px; left: -100px;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  #screen-intro::after {
+    content: '';
+    position: absolute;
+    bottom: -80px; right: -80px;
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(16,185,129,0.10) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .intro-card {
+    background: #1e2130;
+    border: 1px solid #2d3350;
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 680px;
+    width: 100%;
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+
+  .intro-tag {
+    display: inline-block;
+    background: rgba(124,58,237,0.2);
+    border: 1px solid rgba(124,58,237,0.4);
+    color: #a78bfa;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+
+  .intro-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #f1f5f9;
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+
+  .intro-title span { color: #a78bfa; }
+
+  .intro-sub {
+    font-size: 0.88rem;
+    color: #94a3b8;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+
+  .intro-scene {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    background: #141824;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 24px;
+    border: 1px solid #252d42;
+  }
+
+  .intro-img {
+    width: 110px;
+    height: 110px;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 12px;
+    flex-shrink: 0;
+    border: 2px solid #2d3350;
+  }
+
+  .speech-bubble {
+    background: #252d42;
+    border-radius: 14px 14px 14px 4px;
+    padding: 14px 16px;
+    font-size: 0.85rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+    position: relative;
+    flex: 1;
+  }
+  .speech-bubble.teacher { border-radius: 14px 14px 4px 14px; background: #1e2d42; }
+  .speech-bubble strong { color: #a78bfa; font-weight: 700; }
+  .speech-bubble .name-tag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #64748b;
+    margin-bottom: 4px;
+  }
+  .speech-bubble.teacher .name-tag { color: #34d399; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 14px 36px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    cursor: pointer;
+    width: 100%;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+    letter-spacing: 0.3px;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(124,58,237,0.5); }
+
+  /* ── MAIN ACTIVITY SCREEN ── */
+  #screen-activity {
+    background: #0f1117;
+    flex-direction: row;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* LEFT PANEL — IDE */
+  .ide-panel {
+    width: 52%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: #1e1e2e;
+    border-right: 1px solid #2d2d42;
+    flex-shrink: 0;
+  }
+
+  .ide-topbar {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: #181825;
+    border-bottom: 1px solid #2d2d42;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .ide-dots {
+    display: flex;
+    gap: 6px;
+    padding: 10px 14px;
+  }
+  .ide-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .ide-dot.red { background: #ff5f57; }
+  .ide-dot.yellow { background: #febc2e; }
+  .ide-dot.green { background: #28c840; }
+
+  .ide-tabs {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+  }
+  .ide-tab {
+    padding: 8px 16px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.72rem;
+    color: #6b7280;
+    border-right: 1px solid #2d2d42;
+    cursor: default;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .ide-tab.active { background: #1e1e2e; color: #e2e8f0; }
+  .ide-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; }
+
+  .ide-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 0;
+    scrollbar-width: thin;
+    scrollbar-color: #2d2d42 transparent;
+  }
+
+  .code-line {
+    display: flex;
+    align-items: center;
+    padding: 1px 0;
+    min-height: 22px;
+    font-family: 'Fira Code', monospace;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    position: relative;
+    transition: background 0.3s;
+  }
+  .code-line.highlight { background: rgba(239,68,68,0.12); }
+  .code-line.highlight-good { background: rgba(16,185,129,0.10); }
+
+  .line-num {
+    width: 44px;
+    text-align: right;
+    padding-right: 16px;
+    color: #3d3d5c;
+    user-select: none;
+    flex-shrink: 0;
+    font-size: 0.72rem;
+  }
+  .line-code { color: #cdd6f4; flex: 1; padding-right: 16px; }
+
+  /* Syntax colours matching screenshot */
+  .kw  { color: #cba6f7; } /* purple - keywords */
+  .fn  { color: #89b4fa; } /* blue - functions */
+  .str { color: #a6e3a1; } /* green - strings */
+  .num { color: #fab387; } /* orange - numbers */
+  .cm  { color: #6c7086; font-style: italic; } /* grey - comments */
+  .op  { color: #89dceb; } /* teal - operators */
+  .var { color: #cdd6f4; } /* white - variables */
+
+  .bug-marker {
+    display: none;
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: #ef4444;
+    color: white;
+    font-size: 0.62rem;
+    font-weight: 700;
+    font-family: 'DM Sans', sans-serif;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.5px;
+  }
+  .bug-marker.show { display: block; }
+
+  /* IDE bottom — output console */
+  .ide-console {
+    background: #11111b;
+    border-top: 1px solid #2d2d42;
+    padding: 10px 16px;
+    flex-shrink: 0;
+  }
+  .console-label {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.65rem;
+    color: #6c7086;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .console-output {
+    font-family: 'Fira Code', monospace;
+    font-size: 0.78rem;
+    color: #a6e3a1;
+    line-height: 1.6;
+  }
+  .console-output .err { color: #f38ba8; }
+
+  /* RIGHT PANEL */
+  .right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: #0f1117;
+  }
+
+  /* Progress bar */
+  .progress-bar-wrap {
+    padding: 12px 20px 8px;
+    flex-shrink: 0;
+  }
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #475569;
+    margin-bottom: 6px;
+    letter-spacing: 0.5px;
+  }
+  .progress-track {
+    height: 4px;
+    background: #1e2130;
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #7c3aed, #a78bfa);
+    border-radius: 999px;
+    transition: width 0.5s ease;
+  }
+  .check-dots {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .cdot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #1e2130;
+    border: 1px solid #2d3350;
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  .cdot.done-pass { background: #10b981; border-color: #10b981; }
+  .cdot.done-fail { background: #ef4444; border-color: #ef4444; }
+  .cdot.active { background: #a78bfa; border-color: #a78bfa; }
+
+  /* Character area */
+  .char-area {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    padding: 0 20px 12px;
+    flex-shrink: 0;
+  }
+  .char-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    object-position: top;
+    border-radius: 10px;
+    border: 2px solid #2d3350;
+    flex-shrink: 0;
+    transition: opacity 0.3s;
+  }
+  .char-bubble {
+    background: #1e2130;
+    border: 1px solid #2d3350;
+    border-radius: 12px 12px 12px 4px;
+    padding: 10px 14px;
+    font-size: 0.8rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+    flex: 1;
+  }
+  .char-bubble.is-teacher { border-radius: 12px 12px 4px 12px; background: #112030; border-color: #1a3a52; }
+  .char-bubble .who { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #475569; margin-bottom: 3px; }
+  .char-bubble.is-teacher .who { color: #34d399; }
+  .char-bubble strong { color: #a78bfa; }
+  .char-bubble .highlight-text { color: #fbbf24; font-weight: 700; }
+
+  /* Check card */
+  .check-card {
+    margin: 0 20px;
+    background: #1e2130;
+    border: 1px solid #2d3350;
+    border-radius: 14px;
+    padding: 16px 18px;
+    flex-shrink: 0;
+  }
+  .check-number {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #475569;
+    margin-bottom: 4px;
+  }
+  .check-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1rem;
+    font-weight: 900;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+  .check-question {
+    font-size: 0.82rem;
+    color: #94a3b8;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+
+  /* Answer buttons */
+  .answer-btns {
+    display: flex;
+    gap: 10px;
+  }
+  .btn-yes {
+    flex: 1;
+    background: rgba(16,185,129,0.12);
+    border: 1.5px solid rgba(16,185,129,0.3);
+    color: #34d399;
+    border-radius: 10px;
+    padding: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .btn-yes:hover { background: rgba(16,185,129,0.22); border-color: #10b981; transform: translateY(-1px); }
+
+  .btn-no {
+    flex: 1;
+    background: rgba(239,68,68,0.10);
+    border: 1.5px solid rgba(239,68,68,0.25);
+    color: #f87171;
+    border-radius: 10px;
+    padding: 10px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, transform 0.1s;
+  }
+  .btn-no:hover { background: rgba(239,68,68,0.20); border-color: #ef4444; transform: translateY(-1px); }
+
+  /* Result reveal */
+  .result-reveal {
+    display: none;
+    margin: 10px 0 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  .result-reveal.pass { background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
+  .result-reveal.fail { background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; }
+  .result-reveal.show { display: block; }
+  .result-icon { font-size: 1rem; margin-right: 6px; }
+
+  /* Next button */
+  .btn-next {
+    display: none;
+    margin: 10px 20px 0;
+    background: linear-gradient(135deg, #7c3aed, #6d28d9);
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 24px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 900;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(124,58,237,0.35);
+    flex-shrink: 0;
+    transition: transform 0.15s;
+    width: calc(100% - 40px);
+  }
+  .btn-next:hover { transform: translateY(-1px); }
+  .btn-next.show { display: block; }
+
+  /* ── SUMMARY SCREEN ── */
+  #screen-summary {
+    background: #0f1117;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .summary-card {
+    background: #1e2130;
+    border: 1px solid #2d3350;
+    border-radius: 20px;
+    padding: 36px 40px;
+    max-width: 640px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+
+  .summary-title {
+    font-family: 'Nunito', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: #f1f5f9;
+    margin-bottom: 6px;
+  }
+
+  .summary-sub { font-size: 0.85rem; color: #64748b; margin-bottom: 20px; }
+
+  .summary-scene {
+    display: flex;
+    gap: 14px;
+    align-items: flex-end;
+    background: #141824;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 20px;
+    border: 1px solid #252d42;
+  }
+
+  .results-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+
+  .result-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 0.82rem;
+  }
+  .result-row.pass-row { background: rgba(16,185,129,0.08); }
+  .result-row.fail-row { background: rgba(239,68,68,0.08); }
+  .result-row .ri { font-size: 0.9rem; flex-shrink: 0; }
+  .result-row .rname { font-weight: 700; color: #cbd5e1; flex: 1; }
+  .result-row .rnote { font-size: 0.75rem; color: #64748b; }
+
+  .takeaway {
+    background: rgba(124,58,237,0.12);
+    border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 10px;
+    padding: 14px 16px;
+    font-size: 0.82rem;
+    color: #c4b5fd;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .takeaway strong { color: #a78bfa; }
+
+  .btn-restart {
+    background: transparent;
+    border: 1.5px solid #2d3350;
+    color: #64748b;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-family: 'Nunito', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    width: 100%;
+  }
+  .btn-restart:hover { border-color: #a78bfa; color: #a78bfa; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════
+     SCREEN 1: INTRO
+════════════════════════════════ -->
+<div id="screen-intro" class="screen active">
+  <div class="intro-card">
+    <div class="intro-tag">Unit 4 · Loops &amp; AI</div>
+    <div class="intro-title">How to Test <span>AI-Generated</span> Loop Code</div>
+    <div class="intro-sub">A reusable 6-step routine for evaluating loops before trusting them in your classroom projects.</div>
+
+    <div class="intro-scene">
+      <img src="https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/explaining_code.png"
+           alt="Teacher helping student" class="intro-img" style="width:130px; height:100px;">
+      <div style="display:flex; flex-direction:column; gap:10px; flex:1;">
+        <div class="speech-bubble teacher">
+          <div class="name-tag">Ms. Rivera</div>
+          "Alex just showed me loop code the AI wrote. It <em>looks</em> right — but does it actually work? Let's find out together."
+        </div>
+      </div>
+    </div>
+
+    <div style="background:#141824; border-radius:10px; padding:12px 16px; margin-bottom:20px; border:1px solid #252d42;">
+      <div style="font-size:0.68rem; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; color:#475569; margin-bottom:8px;">Your Mission</div>
+      <div style="font-size:0.82rem; color:#94a3b8; line-height:1.6;">Run through all <strong style="color:#a78bfa;">6 checks</strong> on Alex's AI-generated loop. Answer Yes or No for each test. Find out if the code is safe to use — or if there's a hidden bug.</div>
+    </div>
+
+    <button class="btn-primary" onclick="startActivity()">Start Debugging with Alex →</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SCREEN 2: ACTIVITY
+════════════════════════════════ -->
+<div id="screen-activity" class="screen">
+
+  <!-- LEFT: IDE PANEL -->
+  <div class="ide-panel">
+    <div class="ide-topbar">
+      <div class="ide-dots">
+        <div class="ide-dot red"></div>
+        <div class="ide-dot yellow"></div>
+        <div class="ide-dot green"></div>
+      </div>
+      <div class="ide-tabs">
+        <div class="ide-tab active"><div class="ide-tab-dot"></div>script.js</div>
+        <div class="ide-tab">index.html</div>
+      </div>
+    </div>
+
+    <div class="ide-body">
+      <!-- Alex's loop code -->
+      <div class="code-line"><span class="line-num">1</span><span class="line-code"><span class="cm">// Alex asked AI: "Print numbers 1 to 5"</span></span></div>
+      <div class="code-line"><span class="line-num">2</span><span class="line-code"></span></div>
+      <div class="code-line" id="line-3"><span class="line-num">3</span><span class="line-code"><span class="kw">for</span> (<span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span>; <span class="var">i</span> <span class="op">&lt;=</span> <span class="num">5</span>; <span class="var">i</span><span class="op">++</span>) {</span><span class="bug-marker" id="bug1">BUG</span></div>
+      <div class="code-line"><span class="line-num">4</span><span class="line-code">&nbsp;&nbsp;<span class="fn">console</span>.<span class="fn">log</span>(<span class="var">i</span>);</span></div>
+      <div class="code-line"><span class="line-num">5</span><span class="line-code">}</span></div>
+      <div class="code-line"><span class="line-num">6</span><span class="line-code"></span></div>
+      <div class="code-line"><span class="line-num">7</span><span class="line-code"><span class="cm">// Expected output:</span></span></div>
+      <div class="code-line"><span class="line-num">8</span><span class="line-code"><span class="cm">// 1, 2, 3, 4, 5</span></span></div>
+      <div class="code-line"><span class="line-num">9</span><span class="line-code"></span></div>
+      <div class="code-line"><span class="line-num">10</span><span class="line-code"><span class="cm">// Actual output:</span></span></div>
+      <div class="code-line" id="line-11"><span class="line-num">11</span><span class="line-code"><span class="cm" id="actual-output">// ???</span></span></div>
+    </div>
+
+    <div class="ide-console">
+      <div class="console-label">▸ Console Output</div>
+      <div class="console-output" id="consoleOut">
+        <span style="color:#475569;">// Run the checks to reveal the output</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+
+    <!-- Progress -->
+    <div class="progress-bar-wrap">
+      <div class="progress-label">
+        <span id="progressLabel">Check 1 of 6</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div class="check-dots" id="checkDots">
+        <div class="cdot active" id="cdot-0"></div>
+        <div class="cdot" id="cdot-1"></div>
+        <div class="cdot" id="cdot-2"></div>
+        <div class="cdot" id="cdot-3"></div>
+        <div class="cdot" id="cdot-4"></div>
+        <div class="cdot" id="cdot-5"></div>
+      </div>
+    </div>
+
+    <!-- Character -->
+    <div class="char-area" id="charArea">
+      <img id="charImg" src="https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/student_veo.png" alt="Alex" class="char-img">
+      <div class="char-bubble" id="charBubble">
+        <div class="who" id="charName">Alex</div>
+        <span id="charText">Ms. Rivera, the AI wrote this loop for me. It's supposed to print 1 to 5 — can you help me check if it's right?</span>
+      </div>
+    </div>
+
+    <!-- Check Card -->
+    <div class="check-card" id="checkCard">
+      <div class="check-number" id="checkNum">Check 1 of 6</div>
+      <div class="check-title" id="checkTitle">First Value Test</div>
+      <div class="check-question" id="checkQuestion">Does the loop start where Alex expected? He asked for numbers starting at 1. Look at the loop — does <code style="background:#141824; padding:1px 6px; border-radius:4px; font-family:'Fira Code',monospace; font-size:0.78rem; color:#cba6f7;">i = 0</code> match that?</div>
+      <div class="answer-btns" id="answerBtns">
+        <button class="btn-yes" onclick="answer(true)">✓ Yes, it passes</button>
+        <button class="btn-no"  onclick="answer(false)">✗ No, there's an issue</button>
+      </div>
+      <div class="result-reveal" id="resultReveal"></div>
+    </div>
+
+    <!-- Next button -->
+    <button class="btn-next" id="btnNext" onclick="nextCheck()">Next Check →</button>
+
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SCREEN 3: SUMMARY
+════════════════════════════════ -->
+<div id="screen-summary" class="screen">
+  <div class="summary-card">
+    <div class="summary-title">🔍 Debug Complete!</div>
+    <div class="summary-sub">Here's what you found in Alex's AI-generated loop.</div>
+
+    <div class="summary-scene">
+      <img src="https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/teacher_veo.png"
+           alt="Teacher" style="width:80px; height:80px; object-fit:cover; object-position:top; border-radius:10px; border:2px solid #2d3350; flex-shrink:0;">
+      <div class="speech-bubble teacher" style="font-size:0.8rem;">
+        <div class="name-tag" style="color:#34d399;">Ms. Rivera</div>
+        "Great detective work! The AI's code <em>looked</em> right at first — but checks 1, 4, and 6 revealed the truth. This is exactly why we always run the routine before trusting AI output."
+      </div>
+    </div>
+
+    <div class="results-grid" id="resultsGrid"></div>
+
+    <div class="takeaway">
+      <strong>The Bug:</strong> The AI used <code style="background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:4px; font-family:'Fira Code',monospace; font-size:0.78rem;">i = 0</code> and <code style="background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:4px; font-family:'Fira Code',monospace; font-size:0.78rem;">i &lt;= 5</code> — a classic <strong>off-by-one error</strong>. The fix is <code style="background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:4px; font-family:'Fira Code',monospace; font-size:0.78rem;">i = 1</code> and <code style="background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:4px; font-family:'Fira Code',monospace; font-size:0.78rem;">i &lt;= 5</code> — or <code style="background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:4px; font-family:'Fira Code',monospace; font-size:0.78rem;">i = 0</code> and <code style="background:rgba(0,0,0,0.3); padding:1px 6px; border-radius:4px; font-family:'Fira Code',monospace; font-size:0.78rem;">i &lt; 5</code>. AI tools often make this mistake — your students need this routine!
+    </div>
+
+    <button class="btn-restart" onclick="restartActivity()">↺ Run the Checks Again</button>
+  </div>
+</div>
+
+<script>
+  // ── DATA ──
+  const checks = [
+    {
+      title: "First Value Test",
+      question: "Does the loop start where Alex expected? He asked for numbers starting at 1. Look at the loop — does <code style='background:#141824;padding:1px 6px;border-radius:4px;font-family:Fira Code,monospace;font-size:0.78rem;color:#cba6f7;'>i = 0</code> match that?",
+      correctAnswer: false, // No — starts at 0 not 1
+      passText: "✅ Correct — but look more carefully. i starts at 0, not 1. This is actually the first sign of a bug! The loop will include 0 in its output.",
+      failText: "✅ Good instinct! i starts at 0, but Alex asked for 1 to 5. That's already off. Keep going — there may be more issues.",
+      isCorrectYes: false,
+      teacherText: "Look closely at where i starts. Alex asked for 1 to 5 — but what does the code actually say?",
+      alexText: "The AI said starting at 0 is fine because it adjusts with the condition... is that right?",
+      showChar: 'both',
+      highlightLine: 'line-3',
+      consoleReveal: null
+    },
+    {
+      title: "Last Value Test",
+      question: "Does the loop stop at the right place? Alex wanted to end at 5. Does <code style='background:#141824;padding:1px 6px;border-radius:4px;font-family:Fira Code,monospace;font-size:0.78rem;color:#cba6f7;'>i &lt;= 5</code> stop correctly?",
+      correctAnswer: true,
+      passText: "✅ Seems right — i <= 5 does stop when i reaches 5. But wait, does it stop <em>at</em> 5 or <em>after</em> 5? Keep that question in mind...",
+      failText: "🤔 Actually i <= 5 does include 5 — so the last value condition looks okay on its own. But combined with check 1, something still feels off.",
+      isCorrectYes: true,
+      teacherText: "The last value looks fine in isolation. But remember — we found a problem in check 1. Could that affect the count?",
+      alexText: "So i <= 5 is okay... but you look like something's still bothering you, Ms. Rivera.",
+      showChar: 'teacher',
+      highlightLine: 'line-3',
+      consoleReveal: null
+    },
+    {
+      title: "Edge Test",
+      question: "What happens at the boundary? When i equals exactly 5, does the loop include it and then stop? Does the loop handle the edges cleanly?",
+      correctAnswer: true,
+      passText: "✅ Yes — when i = 5 the condition i <= 5 is true so it runs, then i becomes 6 and the loop stops. The edge case looks clean.",
+      failText: "The edge actually works fine here — i <= 5 correctly includes 5 and stops after. Nothing unusual at the boundary itself.",
+      isCorrectYes: true,
+      teacherText: "Edge cases are where loops often break — but this one handles the boundary okay. The real problem is hiding somewhere else.",
+      alexText: "Okay so the edges are fine... then why do I have a feeling something's still wrong?",
+      showChar: 'both',
+      highlightLine: null,
+      consoleReveal: null
+    },
+    {
+      title: "Extra Iteration Check",
+      question: "Does the loop run one extra time? Count the iterations — starting at 0 and ending at 5 with i++, how many times does the loop actually run?",
+      correctAnswer: true, // Yes there IS an extra iteration
+      passText: "🐛 Bug found! Starting at 0 and going to 5 means the loop runs 6 times — printing 0, 1, 2, 3, 4, 5. Alex asked for 5 numbers but gets 6. This is the off-by-one error!",
+      failText: "🐛 Actually — count again! i goes 0, 1, 2, 3, 4, 5 — that's 6 iterations. The loop runs one extra time. This is the bug!",
+      isCorrectYes: true,
+      teacherText: "There it is! Count with me — 0, 1, 2, 3, 4, 5. That's SIX numbers. Alex asked for FIVE. The AI's loop runs one extra time!",
+      alexText: "Wait... it prints 0 too?! I didn't ask for 0! The AI got it wrong!",
+      showChar: 'both',
+      highlightLine: 'line-3',
+      consoleReveal: '0\n1\n2\n3\n4\n5\n<span class="err">// ⚠ 6 values — expected 5!</span>'
+    },
+    {
+      title: "Missing Iteration Check",
+      question: "Now that we know it runs 6 times — does it also miss any expected values? Is every number from 1 to 5 actually present in the output?",
+      correctAnswer: false,
+      passText: "The numbers 1–5 are all there — but so is 0, which wasn't asked for. It's not missing any values, but it has an extra one instead.",
+      failText: "✅ Right — it doesn't miss 1 through 5, but it includes 0 which was never requested. The problem is extra output, not missing output.",
+      isCorrectYes: false,
+      teacherText: "Good observation — the values 1 to 5 are all present. The issue isn't missing iterations, it's the extra 0 at the start.",
+      alexText: "Oh I see — so it's not that it stopped too early, it actually started too early!",
+      showChar: 'student',
+      highlightLine: null,
+      consoleReveal: null
+    },
+    {
+      title: "Match Check",
+      question: "Final check — does the actual output match what Alex requested? He asked for: <code style='background:#141824;padding:1px 6px;border-radius:4px;font-family:Fira Code,monospace;font-size:0.78rem;color:#a6e3a1;'>1, 2, 3, 4, 5</code>. The loop outputs: <code style='background:#141824;padding:1px 6px;border-radius:4px;font-family:Fira Code,monospace;font-size:0.78rem;color:#f87171;'>0, 1, 2, 3, 4, 5</code>. Does it match?",
+      correctAnswer: false,
+      passText: "The output does NOT match. The AI generated a loop that starts at 0, giving 6 values instead of 5. The code fails the match check.",
+      failText: "✅ Correct — the output doesn't match. The AI produced 0,1,2,3,4,5 but Alex asked for 1,2,3,4,5. The fix: change i=0 to i=1.",
+      isCorrectYes: false,
+      teacherText: "And that's our final verdict — the output doesn't match the request. This is why we never skip the Match Check. Even code that 'almost works' can teach students the wrong thing.",
+      alexText: "I can't believe I almost used that code! Thank you for teaching me this routine!",
+      showChar: 'both',
+      highlightLine: 'line-11',
+      consoleReveal: null
+    }
+  ];
+
+  const results = [];
+  let currentCheck = 0;
+  let answered = false;
+
+  function startActivity() {
+    document.getElementById('screen-intro').classList.remove('active');
+    document.getElementById('screen-activity').classList.add('active');
+    renderCheck(0);
+  }
+
+  function renderCheck(idx) {
+    answered = false;
+    const c = checks[idx];
+
+    // Progress
+    const pct = Math.round((idx / 6) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent = 'Check ' + (idx+1) + ' of 6';
+    document.getElementById('progressPct').textContent = pct + '%';
+
+    // Dots
+    for (let i = 0; i < 6; i++) {
+      const dot = document.getElementById('cdot-' + i);
+      dot.className = 'cdot';
+      if (i < idx) {
+        dot.classList.add(results[i] ? 'done-pass' : 'done-fail');
+      } else if (i === idx) {
+        dot.classList.add('active');
+      }
+    }
+
+    // Check card
+    document.getElementById('checkNum').textContent = 'Check ' + (idx+1) + ' of 6';
+    document.getElementById('checkTitle').textContent = c.title;
+    document.getElementById('checkQuestion').innerHTML = c.question;
+
+    // Buttons
+    document.getElementById('answerBtns').style.display = 'flex';
+    const resultEl = document.getElementById('resultReveal');
+    resultEl.className = 'result-reveal';
+    resultEl.innerHTML = '';
+
+    // Next button
+    const btnNext = document.getElementById('btnNext');
+    btnNext.className = 'btn-next';
+    btnNext.textContent = idx < 5 ? 'Next Check →' : 'See Results →';
+
+    // Character
+    updateChar(c, false);
+
+    // Code highlight
+    clearHighlights();
+    if (c.highlightLine) {
+      document.getElementById(c.highlightLine).classList.add('highlight');
+    }
+  }
+
+  function updateChar(c, afterAnswer) {
+    const img = document.getElementById('charImg');
+    const bubble = document.getElementById('charBubble');
+    const nameEl = document.getElementById('charName');
+    const textEl = document.getElementById('charText');
+
+    if (!afterAnswer) {
+      if (c.showChar === 'teacher') {
+        img.src = 'https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/teacher_veo.png';
+        img.alt = 'Ms. Rivera';
+        bubble.className = 'char-bubble is-teacher';
+        nameEl.textContent = 'Ms. Rivera';
+        textEl.innerHTML = c.teacherText;
+      } else if (c.showChar === 'student') {
+        img.src = 'https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/student_veo.png';
+        img.alt = 'Alex';
+        bubble.className = 'char-bubble';
+        nameEl.textContent = 'Alex';
+        textEl.innerHTML = c.alexText;
+      } else {
+        // both — alternate teacher first
+        img.src = 'https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/teacher_veo.png';
+        img.alt = 'Ms. Rivera';
+        bubble.className = 'char-bubble is-teacher';
+        nameEl.textContent = 'Ms. Rivera';
+        textEl.innerHTML = c.teacherText;
+      }
+    } else {
+      // After answer — show Alex reacting
+      img.src = 'https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/student_veo.png';
+      img.alt = 'Alex';
+      bubble.className = 'char-bubble';
+      nameEl.textContent = 'Alex';
+      textEl.innerHTML = c.alexText;
+    }
+  }
+
+  function answer(userSaidYes) {
+    if (answered) return;
+    answered = true;
+
+    const c = checks[currentCheck];
+    const isCorrect = (userSaidYes === c.isCorrectYes);
+
+    // Disable buttons
+    document.getElementById('answerBtns').style.display = 'none';
+
+    // Show result
+    const resultEl = document.getElementById('resultReveal');
+    resultEl.innerHTML = userSaidYes
+      ? '<span class="result-icon">✓</span> <strong>You said: Yes</strong><br>' + c.passText
+      : '<span class="result-icon">✗</span> <strong>You said: No</strong><br>' + c.failText;
+    resultEl.className = 'result-reveal show ' + (isCorrect ? 'pass' : 'fail');
+
+    // Track result (pass = caught the issue correctly)
+    results[currentCheck] = isCorrect;
+
+    // Update dots
+    document.getElementById('cdot-' + currentCheck).className = 'cdot ' + (isCorrect ? 'done-pass' : 'done-fail');
+
+    // Console reveal if this check has one
+    if (c.consoleReveal) {
+      document.getElementById('consoleOut').innerHTML = c.consoleReveal;
+      document.getElementById('actual-output').textContent = '// 0, 1, 2, 3, 4, 5  ← 6 values!';
+      document.getElementById('line-3').classList.add('highlight');
+      document.getElementById('bug1').classList.add('show');
+    }
+
+    // Switch character to Alex reacting
+    updateChar(c, true);
+
+    // Show next
+    document.getElementById('btnNext').classList.add('show');
+  }
+
+  function nextCheck() {
+    currentCheck++;
+    if (currentCheck >= 6) {
+      showSummary();
+    } else {
+      renderCheck(currentCheck);
+    }
+  }
+
+  function clearHighlights() {
+    document.querySelectorAll('.code-line').forEach(l => {
+      l.classList.remove('highlight', 'highlight-good');
+    });
+  }
+
+  function showSummary() {
+    document.getElementById('screen-activity').classList.remove('active');
+    document.getElementById('screen-summary').classList.add('active');
+
+    const checkNames = [
+      'First Value Test',
+      'Last Value Test',
+      'Edge Test',
+      'Extra Iteration Check',
+      'Missing Iteration Check',
+      'Match Check'
+    ];
+    const notes = [
+      'Loop starts at 0, not 1 — off by one at the start',
+      'i <= 5 stops correctly on its own',
+      'Boundary handled cleanly',
+      'Runs 6 times instead of 5 — extra iteration!',
+      'Values 1–5 present, but 0 is extra',
+      'Output 0,1,2,3,4,5 ≠ requested 1,2,3,4,5'
+    ];
+    const isBug = [true, false, false, true, false, true];
+
+    const grid = document.getElementById('resultsGrid');
+    grid.innerHTML = '';
+    for (let i = 0; i < 6; i++) {
+      const row = document.createElement('div');
+      row.className = 'result-row ' + (isBug[i] ? 'fail-row' : 'pass-row');
+      row.innerHTML = '<span class="ri">' + (isBug[i] ? '🐛' : '✅') + '</span>'
+        + '<span class="rname">Check ' + (i+1) + ': ' + checkNames[i] + '</span>'
+        + '<span class="rnote">' + notes[i] + '</span>';
+      grid.appendChild(row);
+    }
+  }
+
+  function restartActivity() {
+    currentCheck = 0;
+    results.length = 0;
+    answered = false;
+
+    // Reset console
+    document.getElementById('consoleOut').innerHTML = '<span style="color:#475569;">// Run the checks to reveal the output</span>';
+    document.getElementById('actual-output').textContent = '// ???';
+    document.getElementById('bug1').classList.remove('show');
+    clearHighlights();
+
+    document.getElementById('screen-summary').classList.remove('active');
+    document.getElementById('screen-activity').classList.add('active');
+    renderCheck(0);
+  }
+</script>
+</body>
+</html>
