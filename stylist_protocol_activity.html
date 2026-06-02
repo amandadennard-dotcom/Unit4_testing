@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Stylist — Push Protocol</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Geist:wght@400;500;700;900&family=Playfair+Display:wght@700&family=Didact+Gothic&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; font-family: 'Geist', sans-serif; background: #0f1117; color: #e2e8f0; overflow: hidden; }
+.skip-link { position: absolute; top: -999px; left: -999px; background: #6a62d9; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; z-index: 9999; text-decoration: none; }
+.skip-link:focus { top: 12px; left: 12px; }
+.screen { display: none; width: 100%; height: 100vh; flex-direction: column; }
+.screen.active { display: flex; }
+
+/* ── INTRO ── */
+#screen-intro { background: linear-gradient(135deg, #0f1117 0%, #12112a 50%, #0f1117 100%); align-items: center; justify-content: center; padding: 24px; position: relative; overflow: hidden; }
+#screen-intro::before { content: ''; position: absolute; top: -100px; left: -100px; width: 400px; height: 400px; background: radial-gradient(circle, rgba(106,98,217,0.12) 0%, transparent 70%); pointer-events: none; }
+#screen-intro::after { content: ''; position: absolute; bottom: -80px; right: -80px; width: 350px; height: 350px; background: radial-gradient(circle, rgba(251,191,36,0.08) 0%, transparent 70%); pointer-events: none; }
+.intro-card { background: #12112a; border: 1px solid #2a2560; border-radius: 20px; padding: 36px 40px; max-width: 700px; width: 100%; position: relative; z-index: 2; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+.intro-tag { display: inline-block; background: rgba(106,98,217,0.18); border: 1px solid rgba(106,98,217,0.4); color: #a29ff0; font-size: 0.7rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; margin-bottom: 14px; }
+.intro-title { font-family: 'Geist', sans-serif; font-size: 1.5rem; font-weight: 900; color: #f1f5f9; line-height: 1.2; margin-bottom: 8px; }
+.intro-title span { color: #a29ff0; }
+.intro-sub { font-size: 0.87rem; color: #94a3b8; margin-bottom: 20px; line-height: 1.5; }
+.notification-box { background: #0f1117; border: 1px solid #2a2560; border-radius: 14px; padding: 16px 18px; margin-bottom: 20px; display: flex; gap: 14px; align-items: flex-start; }
+.notif-icon { font-size: 1.8rem; flex-shrink: 0; }
+.notif-title { font-family: 'Geist', sans-serif; font-weight: 900; color: #a29ff0; font-size: 0.95rem; margin-bottom: 4px; }
+.notif-detail { font-size: 0.8rem; color: #94a3b8; line-height: 1.6; }
+.notif-detail span { color: #fbbf24; font-weight: 700; }
+.intro-scene { display: flex; align-items: flex-end; gap: 14px; background: #0f1117; border-radius: 14px; padding: 16px; margin-bottom: 20px; border: 1px solid #1e1d45; }
+.intro-img { width: 100px; height: 100px; object-fit: cover; object-position: top; border-radius: 12px; flex-shrink: 0; border: 2px solid #2a2560; }
+.speech-bubble { background: #1e2130; border-radius: 14px 14px 14px 4px; padding: 12px 14px; font-size: 0.82rem; color: #cbd5e1; line-height: 1.5; flex: 1; }
+.speech-bubble.teacher { border-radius: 14px 14px 4px 14px; background: #112030; border: 1px solid #1a3a52; }
+.speech-bubble .name-tag { font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #475569; margin-bottom: 3px; }
+.speech-bubble.teacher .name-tag { color: #34d399; }
+.steps-preview { display: flex; gap: 6px; margin-bottom: 20px; flex-wrap: wrap; }
+.step-pill { background: rgba(106,98,217,0.1); border: 1px solid rgba(106,98,217,0.25); color: #a29ff0; font-size: 0.68rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; letter-spacing: 0.5px; }
+.btn-primary { background: linear-gradient(135deg, #6a62d9, #5548c8); color: #fff; border: none; border-radius: 12px; padding: 14px 36px; font-family: 'Geist', sans-serif; font-size: 1rem; font-weight: 900; cursor: pointer; width: 100%; box-shadow: 0 4px 20px rgba(106,98,217,0.4); transition: transform 0.15s, box-shadow 0.15s; }
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(106,98,217,0.5); }
+.btn-primary:focus-visible { outline: 3px solid #a29ff0; outline-offset: 3px; }
+
+/* ── ACTIVITY LAYOUT ── */
+#screen-activity { background: #0f1117; flex-direction: row; height: 100vh; overflow: hidden; }
+.ide-panel { width: 50%; height: 100%; display: flex; flex-direction: column; background: #1e1e2e; border-right: 1px solid #2d2d42; flex-shrink: 0; }
+.ide-topbar { display: flex; align-items: center; background: #181825; border-bottom: 1px solid #2d2d42; padding: 0; flex-shrink: 0; }
+.ide-dots { display: flex; gap: 6px; padding: 10px 14px; }
+.ide-dot { width: 10px; height: 10px; border-radius: 50%; }
+.ide-dot.red { background: #ff5f57; } .ide-dot.yellow { background: #febc2e; } .ide-dot.green { background: #28c840; }
+.ide-tabs { display: flex; align-items: stretch; flex: 1; }
+.ide-tab { padding: 8px 14px; font-family: 'Fira Code', monospace; font-size: 0.7rem; color: #6b7280; border-right: 1px solid #2d2d42; cursor: default; display: flex; align-items: center; gap: 5px; }
+.ide-tab.active { background: #1e1e2e; color: #e2e8f0; }
+.ide-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: #6a62d9; }
+.ide-body { flex: 1; overflow-y: auto; padding: 12px 0; scrollbar-width: thin; scrollbar-color: #2d2d42 transparent; }
+.code-line { display: flex; align-items: center; padding: 1px 0; min-height: 20px; font-family: 'Fira Code', monospace; font-size: 0.75rem; line-height: 1.6; position: relative; transition: background 0.3s; cursor: default; }
+.code-line.clickable { cursor: pointer; }
+.code-line.clickable:hover { background: rgba(106,98,217,0.08); }
+.code-line.highlight-pink { background: rgba(106,98,217,0.15); }
+.code-line.highlight-green { background: rgba(16,185,129,0.12); }
+.code-line.highlight-selected { background: rgba(251,191,36,0.15); outline: 1px solid rgba(251,191,36,0.4); }
+.line-num { width: 38px; text-align: right; padding-right: 14px; color: #3d3d5c; user-select: none; flex-shrink: 0; font-size: 0.68rem; }
+.line-code { color: #cdd6f4; flex: 1; padding-right: 12px; }
+.kw { color: #cba6f7; } .fn { color: #89b4fa; } .str { color: #a6e3a1; } .num { color: #fab387; } .cm { color: #6c7086; font-style: italic; } .op { color: #89dceb; } .var { color: #cdd6f4; } .todo { color: #fbbf24; font-style: italic; font-weight: 600; }
+.line-badge { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); font-size: 0.6rem; font-weight: 700; font-family: 'Geist', sans-serif; padding: 2px 7px; border-radius: 999px; }
+.line-badge.show { display: block; }
+.line-badge.todo-badge { background: #fbbf24; color: #000; }
+.line-badge.correct-badge { background: #10b981; color: #fff; }
+.ide-console { background: #11111b; border-top: 1px solid #2d2d42; padding: 8px 14px; flex-shrink: 0; min-height: 60px; }
+.console-label { font-family: 'Fira Code', monospace; font-size: 0.62rem; color: #6c7086; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 5px; }
+.console-output { font-family: 'Fira Code', monospace; font-size: 0.75rem; color: #a6e3a1; line-height: 1.5; }
+.console-output .err { color: #f38ba8; }
+
+/* ── RIGHT PANEL ── */
+.right-panel { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; background: #0f1117; }
+.progress-bar-wrap { padding: 10px 18px 6px; flex-shrink: 0; }
+.progress-label { display: flex; justify-content: space-between; font-size: 0.68rem; font-weight: 700; color: #475569; margin-bottom: 5px; }
+.progress-track { height: 3px; background: #1e2130; border-radius: 999px; overflow: hidden; }
+.progress-fill { height: 100%; background: linear-gradient(90deg, #6a62d9, #a29ff0); border-radius: 999px; transition: width 0.5s ease; }
+.step-dots { display: flex; gap: 5px; margin-top: 5px; }
+.sdot { width: 8px; height: 8px; border-radius: 50%; background: #1e2130; border: 1px solid #2d3350; transition: background 0.3s; flex-shrink: 0; }
+.sdot.done { background: #10b981; border-color: #10b981; }
+.sdot.active { background: #6a62d9; border-color: #a29ff0; }
+.sdot.fail { background: #ef4444; border-color: #ef4444; }
+
+/* char area */
+.char-area { display: flex; align-items: flex-end; gap: 10px; padding: 0 18px 10px; flex-shrink: 0; }
+.char-img { width: 72px; height: 72px; object-fit: cover; object-position: top; border-radius: 10px; border: 2px solid #2a2560; flex-shrink: 0; }
+.char-bubble { background: #12112a; border: 1px solid #2a2560; border-radius: 12px 12px 12px 4px; padding: 9px 12px; font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; flex: 1; }
+.char-bubble.is-teacher { border-radius: 12px 12px 4px 12px; background: #112030; border-color: #1a3a52; }
+.char-bubble .who { font-size: 0.62rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #475569; margin-bottom: 2px; }
+.char-bubble.is-teacher .who { color: #34d399; }
+
+/* step card */
+.step-card { margin: 0 18px; background: #12112a; border: 1px solid #2a2560; border-radius: 14px; padding: 14px 16px; flex-shrink: 0; }
+.step-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #475569; margin-bottom: 3px; }
+.step-title { font-family: 'Geist', sans-serif; font-size: 0.95rem; font-weight: 900; color: #f1f5f9; margin-bottom: 5px; }
+.step-instruction { font-size: 0.78rem; color: #94a3b8; line-height: 1.5; margin-bottom: 12px; }
+
+/* click targets for step 1 */
+.concept-btns { display: flex; flex-direction: column; gap: 6px; }
+.concept-btn { background: #0f1117; border: 1.5px solid #2d3350; color: #94a3b8; border-radius: 8px; padding: 8px 12px; font-family: 'Geist', sans-serif; font-size: 0.78rem; cursor: pointer; text-align: left; transition: border-color 0.15s, background 0.15s; }
+.concept-btn:hover { border-color: #a29ff0; background: rgba(106,98,217,0.06); color: #f1f5f9; }
+.concept-btn:focus-visible { outline: 3px solid #a29ff0; outline-offset: 2px; }
+.concept-btn.selected-correct { background: rgba(16,185,129,0.1); border-color: #10b981; color: #6ee7b7; }
+.concept-btn.selected-wrong { background: rgba(239,68,68,0.1); border-color: #ef4444; color: #fca5a5; }
+
+/* answer btns (yes/no style) */
+.answer-btns { display: flex; gap: 8px; }
+.btn-yes { flex: 1; background: rgba(16,185,129,0.12); border: 1.5px solid rgba(16,185,129,0.3); color: #34d399; border-radius: 10px; padding: 9px; font-family: 'Geist', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: background 0.15s, transform 0.1s; }
+.btn-yes:hover { background: rgba(16,185,129,0.22); border-color: #10b981; transform: translateY(-1px); }
+.btn-yes:focus-visible { outline: 3px solid #10b981; outline-offset: 2px; }
+.btn-no { flex: 1; background: rgba(239,68,68,0.10); border: 1.5px solid rgba(239,68,68,0.25); color: #f87171; border-radius: 10px; padding: 9px; font-family: 'Geist', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: background 0.15s, transform 0.1s; }
+.btn-no:hover { background: rgba(239,68,68,0.20); border-color: #ef4444; transform: translateY(-1px); }
+.btn-no:focus-visible { outline: 3px solid #ef4444; outline-offset: 2px; }
+
+/* prompt choice cards */
+.prompt-choices { display: flex; flex-direction: column; gap: 8px; }
+.prompt-card { background: #0f1117; border: 1.5px solid #2d3350; border-radius: 10px; padding: 10px 12px; cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+.prompt-card:hover { border-color: #a29ff0; background: rgba(106,98,217,0.05); }
+.prompt-card:focus-visible { outline: 3px solid #a29ff0; outline-offset: 2px; }
+.prompt-card-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #475569; margin-bottom: 4px; }
+.prompt-card-text { font-family: 'Fira Code', monospace; font-size: 0.72rem; color: #cbd5e1; line-height: 1.5; }
+.prompt-card.chosen-good { background: rgba(16,185,129,0.1); border-color: #10b981; }
+.prompt-card.chosen-bad { background: rgba(239,68,68,0.1); border-color: #ef4444; }
+
+/* result reveal */
+.result-reveal { display: none; margin: 10px 0 0; padding: 10px 12px; border-radius: 10px; font-size: 0.77rem; line-height: 1.5; }
+.result-reveal.pass { background: rgba(16,185,129,0.10); border: 1px solid rgba(16,185,129,0.25); color: #6ee7b7; }
+.result-reveal.fail { background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; }
+.result-reveal.info { background: rgba(251,191,36,0.08); border: 1px solid rgba(251,191,36,0.25); color: #fde68a; }
+.result-reveal.show { display: block; }
+
+/* next btn */
+.btn-next { display: none; margin: 8px 18px 0; background: linear-gradient(135deg, #6a62d9, #5548c8); color: #fff; border: none; border-radius: 10px; padding: 10px 22px; font-family: 'Geist', sans-serif; font-size: 0.85rem; font-weight: 900; cursor: pointer; box-shadow: 0 4px 14px rgba(106,98,217,0.35); flex-shrink: 0; transition: transform 0.15s; width: calc(100% - 36px); }
+.btn-next:hover { transform: translateY(-1px); }
+.btn-next:focus-visible { outline: 3px solid #a29ff0; outline-offset: 3px; }
+.btn-next.show { display: block; }
+
+/* sequence sort */
+.sequence-list { display: flex; flex-direction: column; gap: 6px; }
+.seq-item { background: #0f1117; border: 1.5px solid #2d3350; border-radius: 8px; padding: 8px 12px; font-size: 0.77rem; color: #94a3b8; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: border-color 0.15s, background 0.15s; }
+.seq-item:hover { border-color: #a29ff0; color: #f1f5f9; }
+.seq-item:focus-visible { outline: 3px solid #a29ff0; outline-offset: 2px; }
+.seq-item.placed { background: rgba(106,98,217,0.1); border-color: #6a62d9; color: #c4c1f7; }
+.seq-num { width: 22px; height: 22px; border-radius: 50%; background: #12112a; border: 1px solid #2a2560; color: #a29ff0; font-size: 0.7rem; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-family: 'Geist', sans-serif; }
+
+/* ── PHONE MOCKUP (step 5) ── */
+.phone-wrap { display: flex; flex-direction: column; align-items: center; margin: 0 18px; flex-shrink: 0; }
+.phone-mock { width: 180px; height: 280px; background: #fff; border: 5px solid #333; border-radius: 18px; overflow: hidden; box-shadow: 0 8px 24px rgba(0,0,0,0.4); display: flex; flex-direction: column; flex-shrink: 0; }
+.phone-header { background: #FFD1DC; padding: 8px 10px; text-align: center; border-bottom: 1px solid #eee; flex-shrink: 0; }
+.phone-header-title { font-family: 'Playfair Display', serif; font-size: 11px; color: #333; margin: 0; }
+.phone-header-sub { font-size: 7px; color: #888; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 1px; }
+.phone-feed { flex: 1; overflow-y: auto; padding: 6px; background: #fafafa; scrollbar-width: none; }
+.phone-card { background: #fff; border-radius: 7px; margin-bottom: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); display: flex; align-items: center; gap: 6px; padding: 6px 7px; }
+.phone-card-info { flex: 1; }
+.phone-card-title { font-size: 7px; font-weight: 700; color: #333; font-family: 'Didact Gothic', sans-serif; }
+.phone-card-content { font-size: 6px; color: #666; font-style: italic; margin-top: 1px; font-family: 'Didact Gothic', sans-serif; }
+.phone-card-day { font-size: 5px; color: #aaa; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; margin-top: 2px; }
+.phone-card-img { width: 28px; height: 28px; border-radius: 5px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 5px; color: #aaa; text-align: center; word-break: break-all; }
+.phone-card.new-card { animation: slideIn 0.4s ease; border: 1px solid #FFD1DC; }
+@keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ── SUMMARY ── */
+#screen-summary { background: #0f1117; align-items: center; justify-content: center; padding: 24px; overflow-y: auto; }
+.summary-card { background: #12112a; border: 1px solid #2a2560; border-radius: 20px; padding: 32px 36px; max-width: 620px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.5); }
+.summary-title { font-family: 'Geist', sans-serif; font-size: 1.3rem; font-weight: 900; color: #f1f5f9; margin-bottom: 4px; }
+.summary-sub { font-size: 0.82rem; color: #64748b; margin-bottom: 18px; }
+.summary-scene { display: flex; gap: 12px; align-items: flex-end; background: #0f1117; border-radius: 12px; padding: 14px; margin-bottom: 18px; border: 1px solid #1e1d45; }
+.summary-steps { display: flex; flex-direction: column; gap: 6px; margin-bottom: 18px; }
+.sum-row { display: flex; align-items: flex-start; gap: 10px; padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; }
+.sum-row.pass { background: rgba(16,185,129,0.08); }
+.sum-row.info { background: rgba(251,191,36,0.06); }
+.sum-row .si { font-size: 0.9rem; flex-shrink: 0; margin-top: 1px; }
+.sum-row .sname { font-weight: 700; color: #cbd5e1; flex: 1; }
+.sum-row .snote { font-size: 0.72rem; color: #64748b; margin-top: 2px; }
+.takeaway { background: rgba(106,98,217,0.1); border: 1px solid rgba(106,98,217,0.25); border-radius: 10px; padding: 12px 14px; font-size: 0.8rem; color: #c4c1f7; line-height: 1.6; margin-bottom: 18px; }
+.takeaway strong { color: #a29ff0; }
+.btn-restart { background: transparent; border: 1.5px solid #2a2560; color: #64748b; border-radius: 10px; padding: 10px 24px; font-family: 'Geist', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer; transition: border-color 0.15s, color 0.15s; width: 100%; }
+.btn-restart:hover { border-color: #a29ff0; color: #a29ff0; }
+.btn-restart:focus-visible { outline: 3px solid #a29ff0; outline-offset: 3px; }
+</style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div aria-live="polite" aria-atomic="true" id="liveRegion" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;"></div>
+
+<!-- ══════════════════════════════════════
+  ✏️  LANGUAGE / TRANSLATION BLOCK
+  To translate: only edit text values below.
+  Do not change key names, HTML, or JS logic.
+════════════════════════════════════════ -->
+<script>
+const LANG = {
+  pageTitle:        "The Stylist — Push Protocol",
+  unitTag:          "Unit 3 · Arrays & JavaScript",
+  introTitle:       "The Stylist:",
+  introTitleSpan:   "Incoming Booking!",
+  introSub:         "A new client just booked a shoot. Follow the 5-step protocol to guide Isabella through adding it to the feed using .push().",
+  notifIcon:        "📸",
+  notifTitle:       "Update 1: Incoming Booking!",
+  notifDetails:     "A client booked a <span>Streetwear Shoot</span> for the end of the week! Isabella needs to push it to the schedule.",
+  notifItems:       'Title: <span>"Streetwear Shoot"</span> · Content: <span>"Sneak peek at the new collection!"</span> · Image: <span>street.jpg</span>',
+  introImgAlt:      "Isabella, a student in a green sweater, looking overwhelmed at her laptop",
+  teacherImgAlt:    "Ms. Rivera, the teacher, standing in a classroom",
+  studentName:      "Isabella",
+  teacherName:      "Ms. Rivera",
+  teacherImgUrl:    "https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/teacher_veo.png",
+  studentImgUrl:    "https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/isabella.png",
+  introTeacherLine: "Isabella just got a new booking notification — but she's frozen staring at the code. Let's use the 5-step protocol to slow her down and build this together.",
+  stepsPreview:     ["1. Understand","2. Locate","3. Plan","4. Prompt","5. Test"],
+  startBtn:         "Start the Protocol →",
+
+  ideAriaLabel:     "Code editor showing The Stylist script.js file",
+  consoleAriaLabel: "Console output panel",
+  consoleLabel:     "▸ Console",
+  consoleInitial:   "// Ready — follow the steps",
+  consoleStep2:     "// TODO found on line 43",
+  consoleStep3:     "// Plan confirmed — ready to prompt AI",
+  consoleStep4good: "// Great prompt! AI can generate the right code.",
+  consoleStep4bad:  "// Vague prompt — AI may give the wrong result.",
+  consoleStep5:     "// addBooking() called → push() succeeded!\n// Feed updated: 6 posts loaded.",
+
+  progressOf:       "Step {n} of 5",
+  dotDoneLabel:     "Step {n}: complete",
+  dotActiveLabel:   "Step {n}: current",
+  dotPendingLabel:  "Step {n}: not yet started",
+
+  btnNext:          "Next Step →",
+  btnFinish:        "See Summary →",
+
+  steps: [
+    {
+      label:        "Step 1 of 5",
+      icon:         "🔍",
+      title:        "Understand the Starter Code",
+      instruction:  "Before touching anything, Isabella needs to understand what the code is doing. Look at the script.js file. Click the answer that best describes what the parallel arrays are doing.",
+      teacherLine:  "Isabella, before you write a single line — tell me what these three arrays are doing. Point to them in the code.",
+      studentLine:  "I see titles, contents, and images... but I don't know what they have to do with each other.",
+      highlightLines: ["line-a3","line-a4","line-a5"],
+      interactionType: "concept",
+      conceptQuestion: "What do the three parallel arrays (titles, contents, images) represent?",
+      conceptOptions: [
+        { text: "Three separate lists that happen to have the same length", correct: false },
+        { text: "One post per index — index 0 = Monday, index 1 = Tuesday, etc.", correct: true },
+        { text: "The HTML, CSS, and JS files for the project", correct: false },
+        { text: "A loop that runs through each post automatically", correct: false }
+      ],
+      passResult:   "✅ Exactly! Each index position represents one day's post. titles[0], contents[0], and images[0] all belong to Monday. That's the parallel array pattern.",
+      failResult:   "Not quite — look at the comments in the code. Each index maps to a day of the week. titles[0] + contents[0] + images[0] = Monday's post.",
+      studentReaction: "Oh! So index 0 is Monday, index 1 is Tuesday... they all line up together!",
+      consoleMsg:   null
+    },
+    {
+      label:        "Step 2 of 5",
+      icon:         "📌",
+      title:        "Locate the TODO",
+      instruction:  "Isabella needs to find exactly where the new helper function should go. Click the correct line in the code where the helper function should be added.",
+      teacherLine:  "Don't start coding yet. First — where does the code tell you to add the new function? Find it.",
+      studentLine:  "There's a comment that says HELPER FUNCTIONS at the bottom... is that where I go?",
+      highlightLines: [],
+      interactionType: "clickline",
+      clickTarget:  "line-todo",
+      clickCorrect: "✅ That's it! The // HELPER FUNCTIONS comment at line 43 is exactly where the new addBooking() function should be written. The TODO is built into the structure.",
+      clickWrong:   "Keep looking — the code has a section specifically for helper functions. Check the comments near the bottom of the file.",
+      studentReaction: "The comment is like a signpost! The code was already telling me where to go.",
+      consoleMsg:   "// TODO found on line 43"
+    },
+    {
+      label:        "Step 3 of 5",
+      icon:         "🧠",
+      title:        "Plan in Words",
+      instruction:  "Before writing any code, Isabella should describe what needs to happen in plain English. Put these 4 steps in the correct order by clicking them 1 → 4.",
+      teacherLine:  "Close the laptop lid for a second. Tell me in plain English — what does this function need to do? No code words.",
+      studentLine:  "Umm... add the new post? But I don't know where to start explaining it.",
+      highlightLines: [],
+      interactionType: "sequence",
+      sequenceItems: [
+        { id: "s1", text: "Push the new title to the titles array",       correct: 2 },
+        { id: "s2", text: "Create a function called addBooking",           correct: 1 },
+        { id: "s3", text: "Push the new image filename to images array",   correct: 4 },
+        { id: "s4", text: "Push the new caption to the contents array",    correct: 3 }
+      ],
+      passResult:   "✅ Perfect plan! Create the function first, then push to each of the three arrays in order: title → content → image. Now Isabella can write a clear AI prompt.",
+      failResult:   "Almost — remember: you need to create the function before pushing anything. The function wraps all three push() calls.",
+      studentReaction: "Writing it out like that actually makes it so much easier! Now I know exactly what to ask the AI.",
+      consoleMsg:   "// Plan confirmed — ready to prompt AI"
+    },
+    {
+      label:        "Step 4 of 5",
+      icon:         "🤖",
+      title:        "Prompt the AI",
+      instruction:  "Isabella has two AI prompts she could send. Which one will give the AI enough context to write the right helper function?",
+      teacherLine:  "This is the PAIR step — Prompt the AI. But a vague prompt gets vague code. Which prompt gives the AI everything it needs?",
+      studentLine:  "I just want to type 'fix my code' and hope for the best...",
+      highlightLines: [],
+      interactionType: "promptchoice",
+      promptA: {
+        label: "Prompt Option A",
+        text:  "Help me add a new post to my app.",
+        isGood: false,
+        teacherBranch: "That prompt is too vague — the AI doesn't know what kind of app, what arrays exist, or what data to push. It might give you completely different code.",
+        studentBranch: "Oh... so the AI would just guess? That could break everything."
+      },
+      promptB: {
+        label: "Prompt Option B",
+        text:  'I have a JavaScript app with three parallel arrays: titles, contents, and images. Write a helper function called addBooking() that uses push() to add a new post: title "Streetwear Shoot", content "Sneak peek at the new collection!", image "street.jpg".',
+        isGood: true,
+        teacherBranch: "That's the PAIR approach — Context, Goal, Constraints, Output. The AI now knows the array names, the function name, and the exact data. Much better result!",
+        studentBranch: "Wow, giving it more detail actually makes it smarter about my specific code!"
+      },
+      passResult:   "✅ Great choice! Prompt B gives the AI the array names, function name, and exact data. That's Context + Goal + Constraints = a useful AI response.",
+      failResult:   "Prompt A is too vague — the AI doesn't know your array names, your function name, or what data to push. Try Prompt B instead.",
+      studentReaction: "I never thought about giving the AI so much detail. It's like giving directions to someone who's never been to your house!",
+      consoleMsg:   "// Great prompt! AI can generate the right code."
+    },
+    {
+      label:        "Step 5 of 5",
+      icon:         "✅",
+      title:        "Test and Refine",
+      instruction:  "The AI generated the addBooking() function and Isabella added it to script.js. Now she calls it before renderFeed(). Does the phone feed update correctly?",
+      teacherLine:  "Last step — always test before you move on. Look at the phone. Does the new post appear at the end of the feed?",
+      studentLine:  "It's showing! I can see Streetwear Shoot at the bottom! It worked!",
+      highlightLines: ["line-call","line-render"],
+      interactionType: "testconfirm",
+      testQuestion: "Does the phone show 6 posts with 'Streetwear Shoot' at the bottom?",
+      passResult:   "✅ It works! The push() added all three values to the correct arrays, renderFeed() picked them up, and the 6th post is now displaying. Protocol complete!",
+      failResult:   "Check the order — addBooking() must be called BEFORE renderFeed(). The push() needs to happen first so the array has the new data when renderFeed() runs.",
+      studentReaction: "I can't believe I built that! And I actually understand every single line of what it's doing.",
+      consoleMsg:   "// addBooking() called → push() succeeded!\n// Feed updated: 6 posts loaded."
+    }
+  ],
+
+  summaryTitle:     "🎉 Protocol Complete!",
+  summarySub:       "Isabella successfully added the Streetwear Shoot booking to The Stylist feed.",
+  summaryTeacherLine: "That's exactly how we want students to work — understand before you code, plan before you prompt, test before you move on. The protocol works!",
+  summarySteps: [
+    { icon: "🔍", name: "Understand", note: "Identified the parallel array pattern — one index per day" },
+    { icon: "📌", name: "Locate", note: "Found the // HELPER FUNCTIONS TODO in script.js" },
+    { icon: "🧠", name: "Plan", note: "Sequenced the logic in plain English before coding" },
+    { icon: "🤖", name: "Prompt", note: "Used Context + Goal + Constraints for a precise AI prompt" },
+    { icon: "✅", name: "Test", note: "Confirmed 6th post appeared correctly in the feed" }
+  ],
+  takeaway:         "<strong>Key takeaway for your classroom:</strong> When students say they're 'stuck', they're usually skipping step 1 or 3 — they haven't understood what exists or planned what they need. The protocol redirects that impulse.",
+  btnRestart:       "↺ Run the Protocol Again",
+
+  phoneDays:        ["MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"],
+  phoneTitles:      ["Motivation Monday","Tip Tuesday","Work in Progress","Throwback Thursday","Fashion Friday","Streetwear Shoot"],
+  phoneContents:    ["Start strong!","Mix metals.","Sewing a hem.","Old style.","Weekend vibes.","Sneak peek at the new collection!"],
+  phoneImages:      ["one.png","two.png","three.png","four.png","five.png","street.jpg"],
+  phoneImgColors:   ["#c0392b","#8e44ad","#2980b9","#9b1a5a","#7d3c98","#12112a"],
+  phoneTitle:       "My Feed",
+  phoneSub:         "Weekly Planner"
+};
+</script>
+
+<!-- ══ SCREEN 1: INTRO ══ -->
+<div id="screen-intro" class="screen active" role="main" id="main-content" aria-label="Activity introduction">
+  <div class="intro-card">
+    <div class="intro-tag" id="unitTag" aria-hidden="true"></div>
+    <h1 class="intro-title" id="introTitle"></h1>
+    <p class="intro-sub" id="introSub"></p>
+
+    <div class="notification-box" role="note" aria-label="New booking notification">
+      <div class="notif-icon" aria-hidden="true" id="notifIcon"></div>
+      <div>
+        <div class="notif-title" id="notifTitle"></div>
+        <div class="notif-detail" id="notifDetails"></div>
+        <div class="notif-detail" style="margin-top:4px;" id="notifItems"></div>
+      </div>
+    </div>
+
+    <div class="intro-scene">
+      <img id="introCharImg" src="" alt="" class="intro-img" />
+      <div class="speech-bubble teacher" role="blockquote">
+        <div class="name-tag" id="introTeacherName" aria-hidden="true"></div>
+        <span id="introTeacherLine"></span>
+      </div>
+    </div>
+
+    <div class="steps-preview" role="list" aria-label="Protocol steps" id="stepsPreview"></div>
+
+    <button class="btn-primary" id="startBtn" onclick="startActivity()"></button>
+  </div>
+</div>
+
+<!-- ══ SCREEN 2: ACTIVITY ══ -->
+<div id="screen-activity" class="screen" role="main" aria-label="Protocol activity">
+
+  <!-- IDE PANEL -->
+  <div class="ide-panel" id="idePanel" role="region" aria-label="">
+    <div class="ide-topbar" aria-hidden="true">
+      <div class="ide-dots">
+        <div class="ide-dot red"></div><div class="ide-dot yellow"></div><div class="ide-dot green"></div>
+      </div>
+      <div class="ide-tabs">
+        <div class="ide-tab active"><div class="ide-tab-dot"></div>script.js</div>
+        <div class="ide-tab">index.html</div>
+        <div class="ide-tab">style.css</div>
+      </div>
+    </div>
+
+    <div class="ide-body" role="code" aria-label="script.js file contents">
+      <!-- DOM ELEMENTS section -->
+      <div class="code-line"><span class="line-num" aria-hidden="true">1</span><span class="line-code"><span class="cm">// DOM ELEMENTS</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">2</span><span class="line-code"><span class="kw">let</span> <span class="var">post1Title</span> <span class="op">=</span> <span class="var">document</span>.<span class="fn">querySelector</span>(<span class="str">"#post1-title"</span>);</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">3</span><span class="line-code"><span class="kw">let</span> <span class="var">post1Content</span> <span class="op">=</span> <span class="var">document</span>.<span class="fn">querySelector</span>(<span class="str">"#post1-content"</span>);</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">4</span><span class="line-code"><span class="cm">// ... post2 through post5 ...</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">5</span><span class="line-code"></span></div>
+      <!-- DATA LISTS -->
+      <div class="code-line"><span class="line-num" aria-hidden="true">6</span><span class="line-code"><span class="cm">// DATA LISTS (Parallel Arrays)</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">7</span><span class="line-code"><span class="cm">// Index 0 = Monday, Index 1 = Tuesday, etc.</span></span></div>
+      <div class="code-line" id="line-a3"><span class="line-num" aria-hidden="true">8</span><span class="line-code"><span class="kw">let</span> <span class="var">titles</span> <span class="op">=</span> [<span class="str">"Motivation Monday"</span>, <span class="str">"Tip Tuesday"</span>, <span class="str">"Work in Progress"</span>, <span class="str">"Throwback Thursday"</span>, <span class="str">"Fashion Friday"</span>];</span></div>
+      <div class="code-line" id="line-a4"><span class="line-num" aria-hidden="true">9</span><span class="line-code"><span class="kw">let</span> <span class="var">contents</span> <span class="op">=</span> [<span class="str">"Start strong!"</span>, <span class="str">"Mix metals."</span>, <span class="str">"Sewing a hem."</span>, <span class="str">"Old style."</span>, <span class="str">"Weekend vibes."</span>];</span></div>
+      <div class="code-line" id="line-a5"><span class="line-num" aria-hidden="true">10</span><span class="line-code"><span class="kw">let</span> <span class="var">images</span> <span class="op">=</span> [<span class="str">"/images/one.png"</span>, <span class="str">"/images/two.png"</span>, <span class="str">"/images/three.png"</span>, <span class="str">"/images/four.png"</span>, <span class="str">"/images/five.png"</span>];</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">11</span><span class="line-code"></span></div>
+      <!-- DISPLAY LOGIC -->
+      <div class="code-line"><span class="line-num" aria-hidden="true">12</span><span class="line-code"><span class="cm">// DISPLAY LOGIC</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">13</span><span class="line-code"><span class="kw">function</span> <span class="fn">renderFeed</span>() {</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">14</span><span class="line-code">&nbsp;&nbsp;<span class="cm">// Monday Slot (Index 0)</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">15</span><span class="line-code">&nbsp;&nbsp;<span class="var">post1Title</span>.<span class="var">textContent</span> <span class="op">=</span> <span class="var">titles</span>[<span class="num">0</span>];</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">16</span><span class="line-code">&nbsp;&nbsp;<span class="var">post1Content</span>.<span class="var">textContent</span> <span class="op">=</span> <span class="var">contents</span>[<span class="num">0</span>];</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">17</span><span class="line-code">&nbsp;&nbsp;<span class="cm">// ... Tuesday through Friday ...</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">18</span><span class="line-code">}</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">19</span><span class="line-code"></span></div>
+      <!-- START APP -->
+      <div class="code-line"><span class="line-num" aria-hidden="true">20</span><span class="line-code"><span class="cm">// START APP</span></span></div>
+      <div class="code-line" id="line-call"><span class="line-num" aria-hidden="true">21</span><span class="line-code"><span class="cm">// addBooking(); ← will go here</span></span></div>
+      <div class="code-line" id="line-render"><span class="line-num" aria-hidden="true">22</span><span class="line-code"><span class="fn">renderFeed</span>();</span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">23</span><span class="line-code"></span></div>
+      <!-- HELPER FUNCTIONS TODO -->
+      <div class="code-line"><span class="line-num" aria-hidden="true">24</span><span class="line-code"><span class="cm">// ─────────────────────────────</span></span></div>
+      <div class="code-line clickable" id="line-todo" onclick="handleLineClick('line-todo')" tabindex="0" role="button" aria-label="Line 25: HELPER FUNCTIONS comment — click if this is where the new function goes" onkeydown="if(event.key==='Enter'||event.key===' ')handleLineClick('line-todo')">
+        <span class="line-num" aria-hidden="true">25</span>
+        <span class="line-code"><span class="todo">// HELPER FUNCTIONS — add new ones below</span></span>
+        <span class="line-badge todo-badge" id="todo-badge">TODO</span>
+      </div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">26</span><span class="line-code"></span></div>
+      <div class="code-line" id="line-helper-placeholder"><span class="line-num" aria-hidden="true">27</span><span class="line-code"><span class="cm">// ← addBooking() will be written here</span></span></div>
+      <div class="code-line" id="line-helper-fn" style="display:none;"><span class="line-num" aria-hidden="true">27</span><span class="line-code"><span class="kw">function</span> <span class="fn">addBooking</span>() {</span></div>
+      <div class="code-line" id="line-helper-1" style="display:none;"><span class="line-num" aria-hidden="true">28</span><span class="line-code">&nbsp;&nbsp;<span class="var">titles</span>.<span class="fn">push</span>(<span class="str">"Streetwear Shoot"</span>);</span></div>
+      <div class="code-line" id="line-helper-2" style="display:none;"><span class="line-num" aria-hidden="true">29</span><span class="line-code">&nbsp;&nbsp;<span class="var">contents</span>.<span class="fn">push</span>(<span class="str">"Sneak peek at the new collection!"</span>);</span></div>
+      <div class="code-line" id="line-helper-3" style="display:none;"><span class="line-num" aria-hidden="true">30</span><span class="line-code">&nbsp;&nbsp;<span class="var">images</span>.<span class="fn">push</span>(<span class="str">"street.jpg"</span>);</span></div>
+      <div class="code-line" id="line-helper-4" style="display:none;"><span class="line-num" aria-hidden="true">31</span><span class="line-code">}</span></div>
+    </div>
+
+    <div class="ide-console" role="region" id="consolePanel" aria-live="polite">
+      <div class="console-label" id="consoleLabel"></div>
+      <div class="console-output" id="consoleOut"></div>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <!-- Progress -->
+    <div class="progress-bar-wrap" role="region" aria-label="Protocol progress">
+      <div class="progress-label">
+        <span id="progressLabel" aria-live="polite"></span>
+        <span id="progressPct" aria-hidden="true"></span>
+      </div>
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="progressBar" aria-valuenow="0">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+      <div class="step-dots" id="stepDots" role="list" aria-label="Step completion status">
+        <div class="sdot active" id="sdot-0" role="listitem" aria-label=""></div>
+        <div class="sdot" id="sdot-1" role="listitem" aria-label=""></div>
+        <div class="sdot" id="sdot-2" role="listitem" aria-label=""></div>
+        <div class="sdot" id="sdot-3" role="listitem" aria-label=""></div>
+        <div class="sdot" id="sdot-4" role="listitem" aria-label=""></div>
+      </div>
+    </div>
+
+    <!-- Character -->
+    <div class="char-area" aria-live="polite" aria-atomic="true" role="region" aria-label="Character dialogue">
+      <img id="charImg" src="" alt="" class="char-img" />
+      <div class="char-bubble" id="charBubble" role="blockquote">
+        <div class="who" id="charName" aria-hidden="true"></div>
+        <span id="charText"></span>
+      </div>
+    </div>
+
+    <!-- Step Card -->
+    <div class="step-card" id="stepCard" role="region" aria-labelledby="stepTitle">
+      <div class="step-label" id="stepLabel" aria-hidden="true"></div>
+      <h2 class="step-title" id="stepTitle"></h2>
+      <div class="step-instruction" id="stepInstruction"></div>
+
+      <!-- Interaction area — swapped per step -->
+      <div id="interactionArea"></div>
+
+      <div class="result-reveal" id="resultReveal" role="alert" aria-live="assertive"></div>
+    </div>
+
+    <!-- Phone mockup (step 5 only) -->
+    <div class="phone-wrap" id="phoneWrap" style="display:none;" aria-label="Phone mockup showing the feed" role="region">
+      <div class="phone-mock" aria-label="The Stylist app phone preview">
+        <div class="phone-header">
+          <div class="phone-header-title" id="phoneTitle"></div>
+          <div class="phone-header-sub" id="phoneSub"></div>
+        </div>
+        <div class="phone-feed" id="phoneFeed" aria-label="Social media feed posts" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <button class="btn-next" id="btnNext" onclick="nextStep()"></button>
+  </div>
+</div>
+
+<!-- ══ SCREEN 3: SUMMARY ══ -->
+<div id="screen-summary" class="screen" role="main" aria-label="Protocol summary">
+  <div class="summary-card">
+    <h1 class="summary-title" id="summaryTitle"></h1>
+    <p class="summary-sub" id="summarySub"></p>
+    <div class="summary-scene">
+      <img id="summaryTeacherImg" src="" alt="" style="width:72px;height:72px;object-fit:cover;object-position:top;border-radius:10px;border:2px solid #2a2560;flex-shrink:0;" />
+      <div class="speech-bubble teacher" role="blockquote">
+        <div class="name-tag" style="color:#34d399;" id="summaryTeacherName" aria-hidden="true"></div>
+        <span id="summaryTeacherLine"></span>
+      </div>
+    </div>
+    <div class="summary-steps" id="summarySteps" role="list" aria-label="Protocol steps completed"></div>
+    <div class="takeaway" role="note" id="takeaway"></div>
+    <button class="btn-restart" id="btnRestart" onclick="restartActivity()"></button>
+  </div>
+</div>
+
+<script>
+/* ── STATE ── */
+let currentStep = 0;
+let stepAnswered = false;
+let seqOrder = [];
+let seqCount = 0;
+
+/* ── ANNOUNCE ── */
+function announce(msg) {
+  const el = document.getElementById('liveRegion');
+  el.textContent = '';
+  setTimeout(() => { el.textContent = msg; }, 60);
+}
+
+/* ── APPLY LANG ── */
+function applyLang() {
+  const L = LANG;
+  document.title = L.pageTitle;
+  document.getElementById('unitTag').textContent       = L.unitTag;
+  document.getElementById('introTitle').innerHTML      = L.introTitle + ' <span style="color:#a29ff0;">' + L.introTitleSpan + '</span>';
+  document.getElementById('introSub').textContent      = L.introSub;
+  document.getElementById('notifIcon').textContent     = L.notifIcon;
+  document.getElementById('notifTitle').textContent    = L.notifTitle;
+  document.getElementById('notifDetails').innerHTML    = L.notifDetails;
+  document.getElementById('notifItems').innerHTML      = L.notifItems;
+  document.getElementById('introCharImg').src          = L.teacherImgUrl;
+  document.getElementById('introCharImg').alt          = L.teacherImgAlt;
+  document.getElementById('introTeacherName').textContent = L.teacherName;
+  document.getElementById('introTeacherLine').textContent = L.introTeacherLine;
+  document.getElementById('startBtn').textContent      = L.startBtn;
+  document.getElementById('idePanel').setAttribute('aria-label', L.ideAriaLabel);
+  document.getElementById('consolePanel').setAttribute('aria-label', L.consoleAriaLabel);
+  document.getElementById('consoleLabel').textContent  = L.consoleLabel;
+  document.getElementById('consoleOut').innerHTML      = '<span style="color:#475569;">' + L.consoleInitial + '</span>';
+  document.getElementById('summaryTitle').textContent  = L.summaryTitle;
+  document.getElementById('summarySub').textContent    = L.summarySub;
+  document.getElementById('summaryTeacherImg').src     = L.teacherImgUrl;
+  document.getElementById('summaryTeacherImg').alt     = L.teacherImgAlt;
+  document.getElementById('summaryTeacherName').textContent = L.teacherName;
+  document.getElementById('summaryTeacherLine').textContent = L.summaryTeacherLine;
+  document.getElementById('takeaway').innerHTML        = L.takeaway;
+  document.getElementById('btnRestart').textContent    = L.btnRestart;
+  document.getElementById('phoneTitle').textContent    = L.phoneTitle;
+  document.getElementById('phoneSub').textContent      = L.phoneSub;
+
+  // Steps preview pills
+  const prev = document.getElementById('stepsPreview');
+  prev.innerHTML = '';
+  L.stepsPreview.forEach(s => {
+    const pill = document.createElement('div');
+    pill.className = 'step-pill'; pill.setAttribute('role','listitem');
+    pill.textContent = s; prev.appendChild(pill);
+  });
+
+  // Dot labels
+  for (let i = 0; i < 5; i++) {
+    document.getElementById('sdot-' + i).setAttribute('aria-label', L.dotPendingLabel.replace('{n}', i+1));
+  }
+  document.getElementById('sdot-0').setAttribute('aria-label', L.dotActiveLabel.replace('{n}', 1));
+
+  // Summary steps
+  const sg = document.getElementById('summarySteps');
+  sg.innerHTML = '';
+  L.summarySteps.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'sum-row pass'; row.setAttribute('role','listitem');
+    row.setAttribute('aria-label', s.name + ': ' + s.note);
+    row.innerHTML = '<span class="si" aria-hidden="true">' + s.icon + '</span><div><div class="sname">' + s.name + '</div><div class="snote">' + s.note + '</div></div>';
+    sg.appendChild(row);
+  });
+}
+
+/* ── START ── */
+function startActivity() {
+  document.getElementById('screen-intro').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  renderStep(0);
+  announce('Activity started. Step 1 of 5: ' + LANG.steps[0].title);
+}
+
+/* ── RENDER STEP ── */
+function renderStep(idx) {
+  stepAnswered = false;
+  seqOrder = []; seqCount = 0;
+  const s = LANG.steps[idx];
+
+  // Progress
+  const pct = Math.round((idx / 5) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressBar').setAttribute('aria-valuenow', pct);
+  document.getElementById('progressLabel').textContent = LANG.progressOf.replace('{n}', idx+1);
+  document.getElementById('progressPct').textContent = pct + '%';
+
+  // Dots
+  for (let i = 0; i < 5; i++) {
+    const d = document.getElementById('sdot-' + i);
+    d.className = 'sdot';
+    if (i < idx) { d.classList.add('done'); d.setAttribute('aria-label', LANG.dotDoneLabel.replace('{n}',i+1)); }
+    else if (i === idx) { d.classList.add('active'); d.setAttribute('aria-label', LANG.dotActiveLabel.replace('{n}',i+1)); }
+    else { d.setAttribute('aria-label', LANG.dotPendingLabel.replace('{n}',i+1)); }
+  }
+
+  // Step card
+  document.getElementById('stepLabel').textContent = s.label;
+  document.getElementById('stepTitle').textContent = s.icon + ' ' + s.title;
+  document.getElementById('stepInstruction').textContent = s.instruction;
+
+  // Result + next
+  const res = document.getElementById('resultReveal');
+  res.className = 'result-reveal'; res.innerHTML = '';
+  const btn = document.getElementById('btnNext');
+  btn.className = 'btn-next';
+  btn.textContent = idx < 4 ? LANG.btnNext : LANG.btnFinish;
+
+  // Character
+  setChar(LANG.teacherImgUrl, LANG.teacherImgAlt, LANG.teacherName, s.teacherLine, true);
+
+  // Code highlights
+  clearHighlights();
+  if (s.highlightLines) s.highlightLines.forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add('highlight-pink');
+  });
+
+  // Phone mockup
+  document.getElementById('phoneWrap').style.display = (s.interactionType === 'testconfirm') ? 'flex' : 'none';
+  if (s.interactionType === 'testconfirm') buildPhone(false);
+
+  // Reveal helper function lines at step 5
+  if (idx === 4) revealHelperCode();
+
+  // Interaction
+  buildInteraction(s);
+}
+
+function buildInteraction(s) {
+  const area = document.getElementById('interactionArea');
+  area.innerHTML = '';
+
+  if (s.interactionType === 'concept') {
+    const group = document.createElement('div');
+    group.className = 'concept-btns';
+    group.setAttribute('role','group');
+    group.setAttribute('aria-label', s.conceptQuestion);
+    s.conceptOptions.forEach((opt, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'concept-btn';
+      btn.textContent = opt.text;
+      btn.setAttribute('aria-label', 'Option ' + (i+1) + ': ' + opt.text);
+      btn.onclick = () => handleConcept(opt.correct, btn);
+      btn.onkeydown = (e) => { if(e.key==='Enter'||e.key===' ') handleConcept(opt.correct, btn); };
+      group.appendChild(btn);
+    });
+    area.appendChild(group);
+  }
+
+  if (s.interactionType === 'clickline') {
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:0.74rem;color:#64748b;margin-bottom:8px;';
+    hint.textContent = '👆 Click the correct line in the code panel on the left.';
+    hint.setAttribute('role','note');
+    area.appendChild(hint);
+    // Make todo line visually pulse
+    const todoLine = document.getElementById('line-todo');
+    if (todoLine) { todoLine.classList.add('clickable'); }
+  }
+
+  if (s.interactionType === 'sequence') {
+    const shuffled = [...s.sequenceItems].sort(() => Math.random() - 0.5);
+    const hint = document.createElement('div');
+    hint.style.cssText = 'font-size:0.74rem;color:#64748b;margin-bottom:8px;';
+    hint.textContent = '👆 Click each step in order (1 first, 4 last).';
+    area.appendChild(hint);
+    const list = document.createElement('div');
+    list.className = 'sequence-list'; list.setAttribute('role','list');
+    shuffled.forEach(item => {
+      const el = document.createElement('div');
+      el.className = 'seq-item'; el.id = 'seq-' + item.id;
+      el.setAttribute('role','listitem');
+      el.setAttribute('tabindex','0');
+      el.setAttribute('aria-label', 'Step option: ' + item.text);
+      el.innerHTML = '<span class="seq-num" aria-hidden="true">?</span><span>' + item.text + '</span>';
+      el.onclick = () => handleSeqClick(item, el);
+      el.onkeydown = (e) => { if(e.key==='Enter'||e.key===' ') handleSeqClick(item, el); };
+      list.appendChild(el);
+    });
+    area.appendChild(list);
+  }
+
+  if (s.interactionType === 'promptchoice') {
+    const choices = document.createElement('div');
+    choices.className = 'prompt-choices';
+    [s.promptA, s.promptB].forEach((p, i) => {
+      const card = document.createElement('div');
+      card.className = 'prompt-card'; card.setAttribute('tabindex','0');
+      card.setAttribute('role','button');
+      card.setAttribute('aria-label', p.label + ': ' + p.text);
+      card.innerHTML = '<div class="prompt-card-label">' + p.label + '</div><div class="prompt-card-text">"' + p.text + '"</div>';
+      card.onclick = () => handlePromptChoice(p, card);
+      card.onkeydown = (e) => { if(e.key==='Enter'||e.key===' ') handlePromptChoice(p, card); };
+      choices.appendChild(card);
+    });
+    area.appendChild(choices);
+  }
+
+  if (s.interactionType === 'testconfirm') {
+    const btns = document.createElement('div');
+    btns.className = 'answer-btns';
+    btns.setAttribute('role','group');
+    btns.setAttribute('aria-label','Does the phone show the new post correctly?');
+    const yes = document.createElement('button'); yes.className = 'btn-yes'; yes.textContent = LANG.btnYesTest || '✓ Yes, it works!'; yes.onclick = () => handleTest(true);
+    const no  = document.createElement('button'); no.className  = 'btn-no';  no.textContent  = LANG.btnNoTest  || '✗ Something looks wrong'; no.onclick = () => handleTest(false);
+    btns.appendChild(yes); btns.appendChild(no);
+    area.appendChild(btns);
+  }
+}
+
+/* ── INTERACTION HANDLERS ── */
+function handleConcept(isCorrect, btn) {
+  if (stepAnswered) return;
+  stepAnswered = true;
+  const s = LANG.steps[currentStep];
+  document.querySelectorAll('.concept-btn').forEach(b => b.disabled = true);
+  btn.classList.add(isCorrect ? 'selected-correct' : 'selected-wrong');
+  showResult(isCorrect ? s.passResult : s.failResult, isCorrect ? 'pass' : 'fail');
+  setChar(LANG.studentImgUrl, LANG.studentImgAlt, LANG.studentName, s.studentReaction, false);
+  if (s.consoleMsg) updateConsole(s.consoleMsg);
+  document.getElementById('btnNext').classList.add('show');
+  document.getElementById('btnNext').focus();
+  announce((isCorrect ? 'Correct. ' : 'Incorrect. ') + (isCorrect ? s.passResult : s.failResult).replace(/<[^>]*>/g,''));
+}
+
+function handleLineClick(lineId) {
+  if (stepAnswered) return;
+  const s = LANG.steps[currentStep];
+  if (s.interactionType !== 'clickline') return;
+  const isCorrect = (lineId === s.clickTarget);
+  stepAnswered = true;
+  const line = document.getElementById(lineId);
+  if (line) line.classList.add(isCorrect ? 'highlight-selected' : 'highlight-pink');
+  if (isCorrect) {
+    document.getElementById('todo-badge').classList.add('show');
+    document.getElementById('line-todo').classList.add('highlight-selected');
+  }
+  showResult(isCorrect ? s.clickCorrect : s.clickWrong, isCorrect ? 'pass' : 'fail');
+  setChar(LANG.studentImgUrl, LANG.studentImgAlt, LANG.studentName, s.studentReaction, false);
+  if (s.consoleMsg) updateConsole(s.consoleMsg);
+  document.getElementById('btnNext').classList.add('show');
+  document.getElementById('btnNext').focus();
+  announce((isCorrect ? 'Correct. ' : 'Try again. ') + (isCorrect ? s.clickCorrect : s.clickWrong).replace(/<[^>]*>/g,''));
+}
+
+function handleSeqClick(item, el) {
+  if (stepAnswered) return;
+  if (el.classList.contains('placed')) return;
+  seqCount++;
+  el.querySelector('.seq-num').textContent = seqCount;
+  el.classList.add('placed');
+  seqOrder.push({ id: item.id, chosen: seqCount, correct: item.correct });
+  if (seqCount === 4) {
+    stepAnswered = true;
+    const s = LANG.steps[currentStep];
+    const allCorrect = seqOrder.every(o => o.chosen === o.correct);
+    showResult(allCorrect ? s.passResult : s.failResult, allCorrect ? 'pass' : 'fail');
+    setChar(LANG.studentImgUrl, LANG.studentImgAlt, LANG.studentName, s.studentReaction, false);
+    if (s.consoleMsg) updateConsole(s.consoleMsg);
+    document.getElementById('btnNext').classList.add('show');
+    document.getElementById('btnNext').focus();
+    announce((allCorrect ? 'Correct sequence. ' : 'Incorrect sequence. ') + (allCorrect ? s.passResult : s.failResult).replace(/<[^>]*>/g,''));
+  }
+}
+
+function handlePromptChoice(prompt, card) {
+  if (stepAnswered) return;
+  stepAnswered = true;
+  const s = LANG.steps[currentStep];
+  document.querySelectorAll('.prompt-card').forEach(c => c.style.pointerEvents = 'none');
+  card.classList.add(prompt.isGood ? 'chosen-good' : 'chosen-bad');
+  showResult(prompt.isGood ? s.passResult : s.failResult, prompt.isGood ? 'pass' : 'fail');
+  // Teacher branching moment
+  const teacherLine = prompt.isGood ? prompt.teacherBranch : prompt.teacherBranch;
+  setChar(LANG.teacherImgUrl, LANG.teacherImgAlt, LANG.teacherName, prompt.isGood ? prompt.teacherBranch : prompt.teacherBranch, true);
+  if (s.consoleMsg) updateConsole(prompt.isGood ? s.consoleMsg : LANG.consoleStep4bad);
+  document.getElementById('btnNext').classList.add('show');
+  document.getElementById('btnNext').focus();
+  announce((prompt.isGood ? 'Good prompt chosen. ' : 'Weak prompt chosen. ') + (prompt.isGood ? s.passResult : s.failResult).replace(/<[^>]*>/g,''));
+  // Show student reaction after short delay
+  setTimeout(() => {
+    setChar(LANG.studentImgUrl, LANG.studentImgAlt, LANG.studentName, prompt.studentBranch, false);
+  }, 1800);
+}
+
+function handleTest(isCorrect) {
+  if (stepAnswered) return;
+  stepAnswered = true;
+  const s = LANG.steps[currentStep];
+  if (isCorrect) buildPhone(true);
+  showResult(isCorrect ? s.passResult : s.failResult, isCorrect ? 'pass' : 'fail');
+  setChar(LANG.studentImgUrl, LANG.studentImgAlt, LANG.studentName, s.studentReaction, false);
+  if (s.consoleMsg) updateConsole(s.consoleMsg);
+  document.getElementById('btnNext').classList.add('show');
+  document.getElementById('btnNext').focus();
+  announce((isCorrect ? 'Test passed. ' : 'Test failed. ') + (isCorrect ? s.passResult : s.failResult).replace(/<[^>]*>/g,''));
+}
+
+/* ── HELPERS ── */
+function setChar(imgSrc, imgAlt, name, text, isTeacher) {
+  document.getElementById('charImg').src = imgSrc;
+  document.getElementById('charImg').alt = imgAlt;
+  document.getElementById('charBubble').className = 'char-bubble' + (isTeacher ? ' is-teacher' : '');
+  document.getElementById('charName').textContent = name;
+  document.getElementById('charText').textContent = text;
+}
+
+function showResult(text, type) {
+  const el = document.getElementById('resultReveal');
+  el.innerHTML = text;
+  el.className = 'result-reveal show ' + type;
+}
+
+function updateConsole(msg) {
+  document.getElementById('consoleOut').innerHTML =
+    msg.split('\n').map(l => '<span>' + l + '</span>').join('<br>');
+}
+
+function clearHighlights() {
+  document.querySelectorAll('.code-line').forEach(l => {
+    l.classList.remove('highlight-pink','highlight-green','highlight-selected');
+  });
+}
+
+function revealHelperCode() {
+  document.getElementById('line-helper-placeholder').style.display = 'none';
+  ['line-helper-fn','line-helper-1','line-helper-2','line-helper-3','line-helper-4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display = 'flex'; el.classList.add('highlight-green'); }
+  });
+  const callLine = document.getElementById('line-call');
+  if (callLine) {
+    callLine.querySelector('.line-code').innerHTML = '<span class="fn">addBooking</span>();';
+    callLine.classList.add('highlight-green');
+  }
+}
+
+function buildPhone(withNewPost) {
+  const feed = document.getElementById('phoneFeed');
+  feed.innerHTML = '';
+  const count = withNewPost ? 6 : 5;
+  for (let i = 0; i < count; i++) {
+    const card = document.createElement('div');
+    card.className = 'phone-card' + (i === 5 ? ' new-card' : '');
+    card.setAttribute('role','article');
+    card.setAttribute('aria-label', LANG.phoneTitles[i] + ' post');
+    const col = LANG.phoneImgColors[i] || '#333';
+    card.innerHTML =
+      '<div class="phone-card-info">' +
+        '<div class="phone-card-title">' + LANG.phoneTitles[i] + '</div>' +
+        '<div class="phone-card-content">' + LANG.phoneContents[i] + '</div>' +
+        '<div class="phone-card-day">' + LANG.phoneDays[i] + '</div>' +
+      '</div>' +
+      '<div class="phone-card-img" style="background:' + col + ';" aria-hidden="true">' + LANG.phoneImages[i] + '</div>';
+    feed.appendChild(card);
+  }
+  if (withNewPost) feed.scrollTop = feed.scrollHeight;
+}
+
+/* ── NAVIGATION ── */
+function nextStep() {
+  currentStep++;
+  if (currentStep >= 5) {
+    showSummary();
+  } else {
+    renderStep(currentStep);
+    announce(LANG.progressOf.replace('{n}', currentStep+1) + '. ' + LANG.steps[currentStep].title);
+    document.getElementById('stepTitle').focus();
+  }
+}
+
+function showSummary() {
+  document.getElementById('screen-activity').classList.remove('active');
+  document.getElementById('screen-summary').classList.add('active');
+  announce(LANG.summaryTitle);
+  setTimeout(() => document.getElementById('summaryTitle').focus(), 100);
+}
+
+function restartActivity() {
+  currentStep = 0; stepAnswered = false; seqOrder = []; seqCount = 0;
+  clearHighlights();
+  document.getElementById('line-helper-placeholder').style.display = 'flex';
+  ['line-helper-fn','line-helper-1','line-helper-2','line-helper-3','line-helper-4'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.style.display = 'none'; el.classList.remove('highlight-green'); }
+  });
+  const callLine = document.getElementById('line-call');
+  if (callLine) {
+    callLine.querySelector('.line-code').innerHTML = '<span class="cm">// addBooking(); ← will go here</span>';
+    callLine.classList.remove('highlight-green');
+  }
+  document.getElementById('todo-badge').classList.remove('show');
+  document.getElementById('consoleOut').innerHTML = '<span style="color:#475569;">' + LANG.consoleInitial + '</span>';
+  document.getElementById('phoneWrap').style.display = 'none';
+  document.getElementById('screen-summary').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  renderStep(0);
+  announce('Activity restarted. Step 1 of 5.');
+}
+
+// Init
+applyLang();
+</script>
+</body>
+</html>
