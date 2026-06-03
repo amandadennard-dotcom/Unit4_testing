@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cómo Probar Código de Loops Generado por IA</title>
+
+<!--
+  ═══════════════════════════════════════════════════════════════
+  LOCALIZE INTEGRATION NOTES
+  ═══════════════════════════════════════════════════════════════
+  This file is built to be Localize-friendly. Here is what was
+  done to make translation as easy as possible:
+
+  1. ALL user-facing text lives directly in the HTML, not in
+     JavaScript variables. Localize scans the DOM — if text is
+     injected by JS, Localize may miss it. Every label, button,
+     heading, instruction, and feedback message is in an HTML
+     element with a data-i18n key for reference.
+
+  2. Every translatable element has a data-i18n="key" attribute.
+     This is not required by Localize, but it gives your
+     translation team a clear reference key in the dashboard
+     and makes it easy to find any string in the source file.
+
+  3. Code and syntax are never inside translatable elements.
+     The for loop, console.log, variable names, and operators
+     live in <code> tags marked data-translate="no" so Localize
+     will skip them automatically.
+
+  4. Dynamic text (e.g. "Verificación 3 de 6") is handled by
+     a small JS function that reads from hidden HTML templates
+     rather than hardcoded JS strings — so Localize can still
+     find and translate the template text.
+
+  5. To activate Localize: paste your Localize JS snippet just
+     before </head>. No other changes needed.
+  ═══════════════════════════════════════════════════════════════
+-->
+
+<!-- PASTE YOUR LOCALIZE SNIPPET HERE -->
+<!-- <script src="https://global.localizecdn.com/localize.js"></script>
+<script>!function(a){...}("YOUR_KEY");</script> -->
+
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --teal:   #0093a4;
+    --purple: #8c52ba;
+    --red:    #ed6060;
+    --light:  #b2dee3;
+    --dark:   #003f47;
+    --bg:     #f0f9fb;
+    --card:   #ffffff;
+    --text:   #1a2e33;
+    --muted:  #5a7a82;
+    --pass:   #22c55e;
+    --fail:   #ef4444;
+    --ide-bg: #0f1e22;
+    --ide-dim:#1e3438;
+    --ide-txt:#d4e8ec;
+    --kw:     #5dd8f0;
+    --num:    #f5a623;
+    --cm:     #6a9da8;
+    --str:    #98e06b;
+    --shadow: 0 4px 20px rgba(0,147,164,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .screen { display: none; min-height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ── INTRO ── */
+  #screen-intro {
+    background: linear-gradient(145deg, #003f47 0%, #0a5c6b 55%, #1a7a8c 100%);
+    align-items: center; justify-content: center; padding: 40px 20px; position: relative; overflow: hidden;
+  }
+  #screen-intro::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 70% 20%, rgba(0,147,164,0.25) 0%, transparent 60%),
+                radial-gradient(ellipse at 20% 80%, rgba(140,82,186,0.2) 0%, transparent 50%);
+  }
+  .intro-inner { position: relative; max-width: 640px; width: 100%; text-align: center; }
+  .unit-tag {
+    display: inline-block; background: rgba(0,147,164,0.3); border: 1px solid rgba(0,147,164,0.6);
+    color: var(--light); font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; padding: 5px 14px; border-radius: 20px; margin-bottom: 20px;
+  }
+  .intro-title { font-size: clamp(26px,5vw,46px); font-weight: 900; color: #fff; line-height: 1.15; margin-bottom: 8px; }
+  .intro-title span { color: var(--teal); }
+  .intro-sub { font-size: 15px; color: rgba(180,220,228,0.9); margin-bottom: 28px; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .scene-card {
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(0,147,164,0.3);
+    border-radius: 16px; padding: 20px 24px; margin-bottom: 24px; text-align: left; display: flex; gap: 16px; align-items: flex-start;
+  }
+  .scene-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--teal); display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .scene-bubble { flex: 1; }
+  .scene-name { font-size: 11px; font-weight: 700; color: var(--teal); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .scene-text { font-size: 14px; color: rgba(210,235,240,0.95); line-height: 1.55; }
+  .mission-box {
+    background: rgba(0,0,0,0.25); border-left: 3px solid var(--teal);
+    border-radius: 0 10px 10px 0; padding: 14px 18px; margin-bottom: 28px; text-align: left;
+  }
+  .mission-box h3 { font-size: 12px; font-weight: 700; color: var(--teal); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .mission-box p { font-size: 14px; color: rgba(200,230,235,0.9); line-height: 1.5; }
+  .btn-start {
+    background: var(--teal); color: #fff; border: none; border-radius: 12px;
+    font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 800;
+    padding: 14px 36px; cursor: pointer; box-shadow: 0 4px 20px rgba(0,147,164,0.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,147,164,0.5); }
+
+  /* ── TOP BAR ── */
+  .top-bar {
+    background: var(--dark); color: #fff; padding: 10px 20px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .top-bar-title { font-size: 13px; font-weight: 700; color: var(--light); }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .progress-label { font-size: 11px; color: var(--light); white-space: nowrap; }
+  .sdots { display: flex; gap: 6px; }
+  .sdot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3);
+    transition: background .3s, border-color .3s;
+  }
+  .sdot.active { background: var(--teal);  border-color: var(--teal); }
+  .sdot.pass   { background: var(--pass);  border-color: var(--pass); }
+  .sdot.fail   { background: var(--fail);  border-color: var(--fail); }
+
+  /* ── ACTIVITY LAYOUT ── */
+  .activity-body { flex: 1; display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 700px) { .activity-body { grid-template-columns: 1fr; } }
+
+  /* ── IDE ── */
+  .ide-panel { background: var(--ide-bg); display: flex; flex-direction: column; min-height: 400px; }
+  .ide-tab {
+    background: var(--ide-dim); padding: 8px 16px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .ide-tab-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .ide-tab-name { font-family: 'Fira Code', monospace; font-size: 12px; color: #94a3b8; }
+  .ide-code { padding: 20px; flex: 1; font-family: 'Fira Code', monospace; font-size: 13px; line-height: 1.85; }
+  .cm  { color: var(--cm); }
+  .kw  { color: var(--kw); }
+  .nm  { color: var(--num); }
+  .fn  { color: #c9a0ff; }
+  .bug-badge {
+    display: inline-block; background: var(--fail); color: #fff;
+    font-size: 9px; font-weight: 800; letter-spacing: 1px;
+    padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle;
+    opacity: 0; transition: opacity .4s;
+  }
+  .bug-badge.show { opacity: 1; }
+  .console-panel { background: #060e10; border-top: 1px solid rgba(255,255,255,0.05); padding: 12px 16px; }
+  .console-label { font-family: 'Fira Code', monospace; font-size: 10px; color: #4a6a70; letter-spacing: 1px; margin-bottom: 6px; }
+  .console-out { font-family: 'Fira Code', monospace; font-size: 13px; color: #7fbfc8; line-height: 1.8; white-space: pre; }
+  .console-warn { color: #f5a623; font-size: 12px; margin-top: 4px; font-family: 'Fira Code', monospace; display: none; }
+
+  /* ── CHECK PANEL ── */
+  .check-panel { background: var(--card); padding: 24px; display: flex; flex-direction: column; overflow-y: auto; }
+  .check-step-tag { display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: 2px; text-transform: uppercase; color: var(--teal); margin-bottom: 8px; }
+  .check-title { font-size: 20px; font-weight: 900; color: var(--dark); margin-bottom: 10px; }
+  .check-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+  .question-box { background: #f0f9fb; border: 1.5px solid var(--light); border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; }
+  .question-box p { font-size: 14px; font-weight: 700; color: var(--dark); }
+  .answer-btns { display: flex; gap: 10px; margin-bottom: 18px; }
+  .btn-yes, .btn-no {
+    flex: 1; padding: 11px 10px; border-radius: 10px; border: 2px solid;
+    font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 800; cursor: pointer;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .btn-yes { background: #f0fdf4; border-color: var(--pass); color: #166534; }
+  .btn-no  { background: #fef2f2; border-color: var(--fail); color: #991b1b; }
+  .btn-yes:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(34,197,94,0.25); }
+  .btn-no:hover  { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(239,68,68,0.25); }
+  .btn-yes:disabled, .btn-no:disabled { opacity: 0.45; cursor: default; transform: none; box-shadow: none; }
+  .feedback-box { border-radius: 10px; padding: 14px 16px; font-size: 13.5px; line-height: 1.55; display: none; margin-bottom: 16px; }
+  .feedback-box.pass { background: #f0fdf4; border: 1.5px solid #86efac; color: #14532d; }
+  .feedback-box.fail { background: #fef2f2; border: 1.5px solid #fca5a5; color: #7f1d1d; }
+  .char-hint { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 16px; display: none; }
+  .char-mini { width: 34px; height: 34px; border-radius: 50%; background: var(--purple); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .char-speech { background: #f9f4ff; border: 1.5px solid #d4b8f0; border-radius: 0 10px 10px 10px; padding: 10px 13px; font-size: 13px; color: #3b1f60; line-height: 1.5; }
+  .btn-next {
+    margin-top: auto; background: var(--teal); color: #fff; border: none; border-radius: 10px;
+    font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800;
+    padding: 12px 24px; cursor: pointer; display: none; transition: transform .12s, box-shadow .12s;
+  }
+  .btn-next:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,147,164,0.35); }
+
+  /* ── SUMMARY ── */
+  #screen-summary {
+    background: linear-gradient(145deg, #003f47, #0a5c6b);
+    align-items: center; justify-content: center; padding: 40px 20px;
+  }
+  .summary-inner { max-width: 580px; width: 100%; }
+  .summary-title { font-size: clamp(22px,4vw,36px); font-weight: 900; color: #fff; margin-bottom: 6px; text-align: center; }
+  .summary-sub { font-size: 14px; color: var(--light); text-align: center; margin-bottom: 28px; }
+  .result-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  .result-card { background: rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .result-icon { font-size: 20px; }
+  .result-info { flex: 1; }
+  .result-label { font-size: 13px; font-weight: 700; color: #fff; }
+  .result-verdict { font-size: 12px; margin-top: 2px; }
+  .result-verdict.pass { color: #86efac; }
+  .result-verdict.fail { color: #fca5a5; }
+  .score-box { background: var(--teal); border-radius: 12px; padding: 16px 20px; text-align: center; margin-bottom: 20px; }
+  .score-box p { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 2px; }
+  .score-num { font-size: 42px; font-weight: 900; color: #fff; }
+  .score-den { font-size: 22px; color: rgba(255,255,255,0.7); }
+  .bug-found-msg { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; font-size: 14px; color: #fca5a5; line-height: 1.55; }
+  .btn-restart {
+    width: 100%; background: rgba(255,255,255,0.1); color: #fff; border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 10px; font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800;
+    padding: 12px; cursor: pointer; transition: background .2s;
+  }
+  .btn-restart:hover { background: rgba(255,255,255,0.2); }
+
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+  /* Hide all check sections by default; JS shows the active one */
+  .check-section { display: none; }
+  .check-section.active { display: block; }
+</style>
+</head>
+<body>
+
+<div aria-live="polite" aria-atomic="true" class="sr-only" id="live-region"></div>
+
+<!-- ══════════════════════════════════════════
+     INTRO SCREEN
+     All text is in the HTML — Localize can
+     detect and translate every word here.
+══════════════════════════════════════════ -->
+<div class="screen active" id="screen-intro">
+  <div class="intro-inner">
+
+    <div class="unit-tag" data-i18n="unit-tag">Unidad 4 · Loops e IA</div>
+
+    <h1 class="intro-title">
+      <span data-i18n="intro-title-1">Cómo Probar Código de</span><br>
+      <span style="color:var(--teal)" data-i18n="intro-title-2">Loops Generado</span><br>
+      <span data-i18n="intro-title-3">por IA</span>
+    </h1>
+
+    <p class="intro-sub" data-i18n="intro-sub">
+      Una rutina reutilizable de 6 pasos para evaluar loops antes de confiar en ellos en tus proyectos del aula.
+    </p>
+
+    <div class="scene-card">
+      <div class="scene-avatar">👩‍🏫</div>
+      <div class="scene-bubble">
+        <div class="scene-name" data-i18n="teacher-name">Sra. Rivera</div>
+        <div class="scene-text" data-i18n="intro-bubble">
+          Alex me acaba de mostrar un código de loop que generó la IA. Se <em>ve</em> correcto — ¿pero realmente funciona? Vamos a descubrirlo juntos.
+        </div>
+      </div>
+    </div>
+
+    <div class="mission-box">
+      <h3 data-i18n="mission-heading">Tu Misión</h3>
+      <p data-i18n="mission-text">
+        Ejecuta las <strong>6 verificaciones</strong> en el loop de Alex generado por IA. Responde Sí o No en cada prueba. Descubre si el código es seguro de usar — o si hay un error oculto.
+      </p>
+    </div>
+
+    <button class="btn-start" id="btnStart" data-i18n="btn-start">
+      Comenzar a Depurar con Alex →
+    </button>
+
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     ACTIVITY SCREEN
+══════════════════════════════════════════ -->
+<div class="screen" id="screen-activity">
+
+  <div class="top-bar">
+    <span class="top-bar-title" data-i18n="page-title">Cómo Probar Código de Loops Generado por IA</span>
+    <div class="progress-wrap">
+      <!-- Progress label is built from a template string in JS -->
+      <span class="progress-label" id="progressLabel"></span>
+      <!-- Template: Localize will translate this hidden element -->
+      <span class="sr-only" id="progress-template" data-i18n="progress-of">Verificación {n} de 6</span>
+      <div class="sdots" id="sdots"></div>
+    </div>
+  </div>
+
+  <div class="activity-body">
+
+    <!-- ── IDE Panel ─────────────────────────── -->
+    <div class="ide-panel">
+      <div class="ide-tab">
+        <div class="ide-tab-dot" style="background:#ef4444"></div>
+        <div class="ide-tab-dot" style="background:#f5a623"></div>
+        <div class="ide-tab-dot" style="background:#22c55e"></div>
+        <!-- File name: kept in English as it is a code filename -->
+        <span class="ide-tab-name" data-translate="no">loop_de_alex.js</span>
+      </div>
+
+      <div class="ide-code">
+
+        <!-- Code comment: translatable -->
+        <div><span class="cm" data-i18n="ide-comment">// Alex le pidió a la IA: "Imprime los números del 1 al 5"</span></div>
+        <div>&nbsp;</div>
+
+        <!-- Loop syntax: NOT translatable — data-translate="no" tells Localize to skip -->
+        <div data-translate="no"><span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i &lt; <span class="nm">5</span>; i++) {</div>
+        <div data-translate="no">&nbsp; <span class="fn">console</span>.<span class="fn">log</span>(i);</div>
+        <div data-translate="no">}</div>
+        <div>&nbsp;</div>
+
+        <!-- Comments: translatable -->
+        <div><span class="cm" data-i18n="ide-expected-label">// Resultado esperado:</span></div>
+        <div><span class="cm" data-i18n="ide-expected-vals">// 1, 2, 3, 4, 5</span></div>
+        <div>&nbsp;</div>
+        <div><span class="cm" data-i18n="ide-actual-label">// Resultado real:</span></div>
+
+        <!-- This line gets updated by JS when the bug is revealed -->
+        <div id="actualVal">
+          <span class="cm" data-i18n="ide-actual-unknown">// ???</span>
+          <span class="bug-badge" id="bugBadge" data-i18n="bug-label">ERROR</span>
+        </div>
+
+      </div>
+
+      <div class="console-panel">
+        <div class="console-label" data-i18n="console-label" data-translate="no">▸ Console</div>
+        <div class="console-out" id="consoleOut">
+          <span style="color:#4a6a70;" data-i18n="console-initial">// Responde las verificaciones para ver el resultado</span>
+        </div>
+        <div class="console-warn" id="consoleWarn" data-i18n="console-warning">// ⚠ 6 valores — ¡se esperaban 5!</div>
+      </div>
+    </div>
+
+    <!-- ── Check Panel ────────────────────────
+         Each check is its own HTML block with
+         a data-check index. JS shows/hides them.
+         ALL text is in the HTML for Localize.
+    ─────────────────────────────────────────── -->
+    <div class="check-panel">
+
+      <div class="check-step-tag" id="stepTag"></div>
+      <!-- Step tag template — JS fills {n} at runtime -->
+      <span class="sr-only" id="step-tag-template" data-i18n="step-tag">Verificación {n} de 6</span>
+
+      <!-- ── CHECK 1 ── -->
+      <div class="check-section active" data-check="0">
+        <h2 class="check-title" data-i18n="check1-title">Prueba del Primer Valor</h2>
+        <p class="check-desc" data-i18n="check1-desc">
+          ¿El loop comienza donde se espera? El loop de Alex empieza en
+          <code data-translate="no">i = 0</code>, pero Alex quería imprimir desde el 1.
+        </p>
+        <div class="question-box">
+          <p data-i18n="check1-question">¿El loop comienza en el valor correcto (1)?</p>
+        </div>
+        <div class="feedback-yes" style="display:none" data-i18n="check1-fb-yes">
+          ¡Revisa otra vez! El loop empieza en <code data-translate="no">i = 0</code>, ¡no en 1! Eso significa que el primer número impreso será 0, no 1.
+        </div>
+        <div class="feedback-no" style="display:none" data-i18n="check1-fb-no">
+          ¡Exacto! El loop empieza en <code data-translate="no">i = 0</code>, pero debería comenzar en <code data-translate="no">i = 1</code>. Ese primer valor incorrecto es la raíz del problema.
+        </div>
+        <div class="char-hint-text" style="display:none" data-i18n="check1-hint">
+          Pregúntale a la IA: '¿Cuál es el valor de i en la primera iteración del loop?' Esa sola pregunta te revela el error.
+        </div>
+        <div class="char-hint-icon" style="display:none">👩‍🏫</div>
+      </div>
+
+      <!-- ── CHECK 2 ── -->
+      <div class="check-section" data-check="1">
+        <h2 class="check-title" data-i18n="check2-title">Prueba del Último Valor</h2>
+        <p class="check-desc" data-i18n="check2-desc">
+          ¿El loop se detiene en el valor final correcto? La condición es
+          <code data-translate="no">i &lt; 5</code>, así que el último valor de i es 4.
+        </p>
+        <div class="question-box">
+          <p data-i18n="check2-question">¿El loop termina en el valor correcto (5)?</p>
+        </div>
+        <div class="feedback-yes" style="display:none" data-i18n="check2-fb-yes">
+          ¡Vuelve a verificar! Con <code data-translate="no">i &lt; 5</code>, el loop se detiene cuando i llega a 5 — pero nunca imprime 5. El último valor impreso es 4.
+        </div>
+        <div class="feedback-no" style="display:none" data-i18n="check2-fb-no">
+          ¡Correcto! La condición <code data-translate="no">i &lt; 5</code> hace que el loop se detenga antes de imprimir 5. El loop imprime 0, 1, 2, 3, 4 — ¡nunca llega al 5!
+        </div>
+        <div class="char-hint-text" style="display:none" data-i18n="check2-hint">
+          Agrego un console.log al final... y veo que el último número es 4. ¡Eso está mal! Se suponía que imprimiera hasta el 5.
+        </div>
+        <div class="char-hint-icon" style="display:none">🧑‍💻</div>
+      </div>
+
+      <!-- ── CHECK 3 ── -->
+      <div class="check-section" data-check="2">
+        <h2 class="check-title" data-i18n="check3-title">Prueba de Borde</h2>
+        <p class="check-desc" data-i18n="check3-desc">
+          ¿Qué sucede en los límites del loop? Con <code data-translate="no">i = 0</code> como inicio y
+          <code data-translate="no">i &lt; 5</code> como condición, ¿cuántas iteraciones ocurren en total?
+        </p>
+        <div class="question-box">
+          <p data-i18n="check3-question">¿El loop ejecuta exactamente 5 iteraciones (sin más ni menos)?</p>
+        </div>
+        <div class="feedback-yes" style="display:none" data-i18n="check3-fb-yes">
+          ¡Cuidado! El loop ejecuta 5 iteraciones (i = 0, 1, 2, 3, 4), pero los 5 valores son 0–4, ¡no 1–5! El conteo es correcto, pero los valores están desplazados.
+        </div>
+        <div class="feedback-no" style="display:none" data-i18n="check3-fb-no">
+          ¡Muy bien! Aunque el loop ejecuta exactamente 5 iteraciones, los valores están desplazados: 0, 1, 2, 3, 4 en lugar de 1, 2, 3, 4, 5. ¡El número de repeticiones está bien, pero el rango no!
+        </div>
+        <div class="char-hint-text" style="display:none" data-i18n="check3-hint">
+          Hay una diferencia entre 'número de iteraciones' y 'valores impresos'. Este loop itera 5 veces — ¡pero imprime los números incorrectos!
+        </div>
+        <div class="char-hint-icon" style="display:none">👩‍🏫</div>
+      </div>
+
+      <!-- ── CHECK 4 ── -->
+      <div class="check-section" data-check="3">
+        <h2 class="check-title" data-i18n="check4-title">Verificación de Iteración Extra</h2>
+        <p class="check-desc" data-i18n="check4-desc">
+          ¿El loop corre una vez de más accidentalmente? Con <code data-translate="no">i = 0</code> y
+          <code data-translate="no">i &lt; 5</code>, obtenemos i = 0, 1, 2, 3, 4 — eso son 5 valores, pero incluye el 0.
+        </p>
+        <div class="question-box">
+          <p data-i18n="check4-question">¿El loop corre exactamente la cantidad correcta de veces sin iteraciones extra?</p>
+        </div>
+        <div class="feedback-yes" style="display:none" data-i18n="check4-fb-yes">
+          ¡Espera! El loop imprime 0, 1, 2, 3, 4 — eso son 5 números, pero se pidió imprimir del 1 al 5. El 0 es una iteración extra que no debería estar.
+        </div>
+        <div class="feedback-no" style="display:none" data-i18n="check4-fb-no">
+          ¡Perfecto! El 0 es una iteración extra no deseada. Iniciando en <code data-translate="no">i = 0</code> se obtiene un número más de lo que Alex quería — el código de la IA tiene un error clásico de uno de más.
+        </div>
+        <div class="char-hint-text" style="display:none" data-i18n="check4-hint">
+          Entonces, ¿la IA me dio un error de 'uno de más'? Si empezara en i = 1, ¡obtendría exactamente 1, 2, 3, 4, 5!
+        </div>
+        <div class="char-hint-icon" style="display:none">🧑‍💻</div>
+      </div>
+
+      <!-- ── CHECK 5 ── -->
+      <div class="check-section" data-check="4">
+        <h2 class="check-title" data-i18n="check5-title">Verificación de Iteración Faltante</h2>
+        <p class="check-desc" data-i18n="check5-desc">
+          ¿El loop se detiene demasiado pronto? La condición es <code data-translate="no">i &lt; 5</code>,
+          así que el 5 nunca se imprime. Alex quería imprimir del 1 al 5 — el 5 es el valor faltante.
+        </p>
+        <div class="question-box">
+          <p data-i18n="check5-question">¿El loop imprime todos los valores requeridos (1 al 5 inclusive)?</p>
+        </div>
+        <div class="feedback-yes" style="display:none" data-i18n="check5-fb-yes">
+          ¡Revisa la consola! El 5 nunca aparece en la salida. Con <code data-translate="no">i &lt; 5</code>, el loop se detiene cuando i = 4. El 5 es la iteración faltante.
+        </div>
+        <div class="feedback-no" style="display:none" data-i18n="check5-fb-no">
+          ¡Exacto! El número 5 nunca se imprime porque la condición <code data-translate="no">i &lt; 5</code> lo excluye. Para incluirlo, necesitaríamos <code data-translate="no">i &lt;= 5</code>.
+        </div>
+        <div class="char-hint-text" style="display:none" data-i18n="check5-hint">
+          Siempre revisa si el último valor requerido aparece en la salida. Aquí, el 5 estará ausente — ese es el valor faltante.
+        </div>
+        <div class="char-hint-icon" style="display:none">👩‍🏫</div>
+      </div>
+
+      <!-- ── CHECK 6 ── -->
+      <div class="check-section" data-check="5">
+        <h2 class="check-title" data-i18n="check6-title">Verificación de Coincidencia</h2>
+        <p class="check-desc" data-i18n="check6-desc">
+          ¿La salida real coincide con lo que se solicitó? Alex le pidió a la IA que imprimiera los números del 1 al 5. La salida real es: 0, 1, 2, 3, 4.
+        </p>
+        <div class="question-box">
+          <p data-i18n="check6-question">¿La salida coincide exactamente con el comportamiento solicitado?</p>
+        </div>
+        <div class="feedback-yes" style="display:none" data-i18n="check6-fb-yes">
+          ¡Mira más de cerca! Alex pidió 1, 2, 3, 4, 5 — pero la IA generó código que imprime 0, 1, 2, 3, 4. ¡No coincide en absoluto!
+        </div>
+        <div class="feedback-no" style="display:none" data-i18n="check6-fb-no">
+          ¡Perfecto! La salida real (0, 1, 2, 3, 4) no coincide con lo que se pidió (1, 2, 3, 4, 5). Es momento de pedirle a la IA que lo corrija: cambiar
+          <code data-translate="no">i = 0</code> a <code data-translate="no">i = 1</code> y
+          <code data-translate="no">i &lt; 5</code> a <code data-translate="no">i &lt;= 5</code>.
+        </div>
+        <div class="char-hint-text" style="display:none" data-i18n="check6-hint">
+          Así que la IA no entendió bien el prompt, ¿verdad? Probablemente deba dar instrucciones más claras la próxima vez, como 'comienza en 1 e incluye el 5'.
+        </div>
+        <div class="char-hint-icon" style="display:none">🧑‍💻</div>
+      </div>
+
+      <!-- Shared answer buttons and feedback area (filled by JS from the active check's HTML) -->
+      <div class="answer-btns" style="margin-top:16px">
+        <button class="btn-yes" id="btnYes" onclick="answer(true)" data-i18n="btn-yes">✓ Sí, pasa la prueba</button>
+        <button class="btn-no"  id="btnNo"  onclick="answer(false)" data-i18n="btn-no">✗ No, hay un problema</button>
+      </div>
+
+      <div class="feedback-box" id="feedbackBox"></div>
+
+      <div class="char-hint" id="charHint">
+        <div class="char-mini" id="charIcon"></div>
+        <div class="char-speech" id="charSpeech"></div>
+      </div>
+
+      <button class="btn-next" id="btnNext" onclick="nextCheck()">
+        <!-- Text set by JS from HTML templates below -->
+      </button>
+      <!-- Button label templates — in HTML so Localize finds them -->
+      <span class="sr-only" id="tpl-btn-next"     data-i18n="btn-next">Siguiente Verificación →</span>
+      <span class="sr-only" id="tpl-btn-results"  data-i18n="btn-results">Ver Resultados →</span>
+      <span class="sr-only" id="tpl-you-said-yes" data-i18n="you-said-yes">Respondiste: Sí</span>
+      <span class="sr-only" id="tpl-you-said-no"  data-i18n="you-said-no">Respondiste: No</span>
+      <span class="sr-only" id="tpl-correct"      data-i18n="verdict-correct">Respondiste correctamente</span>
+      <span class="sr-only" id="tpl-incorrect"    data-i18n="verdict-incorrect">Respuesta incorrecta</span>
+
+    </div><!-- /check-panel -->
+  </div><!-- /activity-body -->
+</div><!-- /screen-activity -->
+
+
+<!-- ══════════════════════════════════════════
+     SUMMARY SCREEN
+══════════════════════════════════════════ -->
+<div class="screen" id="screen-summary">
+  <div class="summary-inner">
+
+    <h2 class="summary-title" data-i18n="summary-title">🔍 ¡Depuración Completa!</h2>
+    <p class="summary-sub" data-i18n="summary-sub">Esto es lo que encontraste en el loop de Alex generado por IA.</p>
+
+    <div class="result-cards" id="resultCards"></div>
+
+    <div class="score-box">
+      <p data-i18n="score-label">Verificaciones superadas</p>
+      <span class="score-num" id="scoreNum">0</span><span class="score-den">/6</span>
+    </div>
+
+    <div class="bug-found-msg" id="bugFoundMsg">
+      <!-- Filled by JS; templates below let Localize find the strings -->
+    </div>
+
+    <!-- Bug message templates -->
+    <span class="sr-only" id="tpl-bug-msg" data-i18n="bug-msg">
+      🐛 El error principal del loop: la IA empezó en <code data-translate="no">i = 0</code> en lugar de <code data-translate="no">i = 1</code>, y la condición <code data-translate="no">i &lt; 5</code> excluye el 5. La corrección: <code data-translate="no">for (let i = 1; i &lt;= 5; i++)</code>
+    </span>
+    <span class="sr-only" id="tpl-perfect-msg" data-i18n="perfect-msg">
+      🎉 ¡Puntuación perfecta! Identificaste todos los problemas. El error principal: la IA empezó en <code data-translate="no">i = 0</code> en lugar de <code data-translate="no">i = 1</code>.
+    </span>
+
+    <button class="btn-restart" onclick="restart()" data-i18n="btn-restart">↺ Intentar de Nuevo</button>
+
+  </div>
+</div>
+
+
+<script>
+/*
+  ─────────────────────────────────────────────
+  JS LOGIC — no user-facing strings live here.
+  All text is read FROM the HTML elements above
+  using getElementById(). This means Localize
+  translates the HTML, and the JS automatically
+  picks up the translated text at runtime.
+  ─────────────────────────────────────────────
+*/
+
+// Which check answer is "correct" for each of the 6 checks
+// (all are false — every check reveals a problem with the loop)
+const CORRECT = [false, false, false, false, false, false];
+
+let currentCheck = 0;
+let answers      = [];
+
+function txt(id) {
+  // Helper: read innerText from an HTML element
+  return document.getElementById(id).innerText;
+}
+
+function announce(msg) {
+  const r = document.getElementById('live-region');
+  r.textContent = '';
+  setTimeout(() => r.textContent = msg, 50);
+}
+
+function buildDots() {
+  const wrap = document.getElementById('sdots');
+  wrap.innerHTML = '';
+  for (let i = 0; i < 6; i++) {
+    const d = document.createElement('div');
+    d.className = 'sdot' + (i === currentCheck ? ' active' : '');
+    wrap.appendChild(d);
+  }
+}
+
+function updateDots() {
+  const dots = document.querySelectorAll('.sdot');
+  answers.forEach((a, i) => {
+    dots[i].classList.remove('active','pass','fail');
+    dots[i].classList.add(a === CORRECT[i] ? 'pass' : 'fail');
+  });
+  if (currentCheck < 6) {
+    dots[currentCheck].classList.remove('active','pass','fail');
+    dots[currentCheck].classList.add('active');
+  }
+}
+
+function showCheck(n) {
+  document.querySelectorAll('.check-section').forEach(el => el.classList.remove('active'));
+  document.querySelector(`.check-section[data-check="${n}"]`).classList.add('active');
+
+  // Progress labels — read template from HTML, replace {n}
+  const tpl = document.getElementById('progress-template').innerText;
+  const stpl = document.getElementById('step-tag-template').innerText;
+  document.getElementById('progressLabel').textContent = tpl.replace('{n}', n + 1);
+  document.getElementById('stepTag').textContent       = stpl.replace('{n}', n + 1);
+
+  // Reset shared UI
+  const fb = document.getElementById('feedbackBox');
+  fb.style.display = 'none'; fb.className = 'feedback-box'; fb.innerHTML = '';
+  document.getElementById('charHint').style.display = 'none';
+  document.getElementById('btnNext').style.display  = 'none';
+  document.getElementById('btnYes').disabled = false;
+  document.getElementById('btnNo').disabled  = false;
+
+  buildDots();
+}
+
+function answer(isYes) {
+  answers[currentCheck] = isYes;
+  document.getElementById('btnYes').disabled = true;
+  document.getElementById('btnNo').disabled  = true;
+
+  const section  = document.querySelector(`.check-section[data-check="${currentCheck}"]`);
+  const fbText   = section.querySelector(isYes ? '.feedback-yes' : '.feedback-no').innerHTML;
+  const hintText = section.querySelector('.char-hint-text').innerText;
+  const hintIcon = section.querySelector('.char-hint-icon').innerText;
+  const correct  = isYes === CORRECT[currentCheck];
+
+  // Feedback box — innerHTML so <code> tags render
+  const fb = document.getElementById('feedbackBox');
+  const youSaid = isYes ? txt('tpl-you-said-yes') : txt('tpl-you-said-no');
+  fb.innerHTML   = `<strong>${youSaid}</strong><br>${fbText}`;
+  fb.className   = 'feedback-box ' + (correct ? 'pass' : 'fail');
+  fb.style.display = 'block';
+
+  // Character hint
+  document.getElementById('charIcon').textContent   = hintIcon;
+  document.getElementById('charSpeech').textContent = hintText;
+  document.getElementById('charHint').style.display = 'flex';
+
+  // Reveal bug on final check
+  if (currentCheck === 5) {
+    document.getElementById('actualVal').innerHTML =
+      `<span class="cm" data-i18n="ide-actual-revealed">// 0, 1, 2, 3, 4, 5  ← ¡6 valores!</span>
+       <span class="bug-badge show" data-i18n="bug-label">ERROR</span>`;
+    document.getElementById('consoleOut').textContent = '0\n1\n2\n3\n4\n5';
+    document.getElementById('consoleWarn').style.display = 'block';
+  }
+
+  updateDots();
+
+  // Next button — read label from HTML templates
+  const next = document.getElementById('btnNext');
+  next.textContent = currentCheck < 5 ? txt('tpl-btn-next') : txt('tpl-btn-results');
+  next.style.display = 'block';
+}
+
+function nextCheck() {
+  currentCheck++;
+  if (currentCheck >= 6) { showSummary(); return; }
+  showCheck(currentCheck);
+}
+
+function showSummary() {
+  document.getElementById('screen-activity').classList.remove('active');
+  document.getElementById('screen-summary').classList.add('active');
+
+  let score = 0;
+  const cards = document.getElementById('resultCards');
+  cards.innerHTML = '';
+
+  document.querySelectorAll('.check-section').forEach((section, i) => {
+    const correct = answers[i] === CORRECT[i];
+    if (correct) score++;
+    const title = section.querySelector('.check-title').innerText;
+    const div = document.createElement('div');
+    div.className = 'result-card';
+    div.innerHTML = `<div class="result-icon">${correct ? '✅' : '❌'}</div>
+      <div class="result-info">
+        <div class="result-label">${title}</div>
+        <div class="result-verdict ${correct ? 'pass' : 'fail'}">
+          ${correct ? txt('tpl-correct') : txt('tpl-incorrect')}
+        </div>
+      </div>`;
+    cards.appendChild(div);
+  });
+
+  document.getElementById('scoreNum').textContent = score;
+
+  const bugMsg = document.getElementById('bugFoundMsg');
+  if (score === 6) {
+    bugMsg.style.background  = 'rgba(34,197,94,0.15)';
+    bugMsg.style.borderColor = 'rgba(34,197,94,0.4)';
+    bugMsg.style.color       = '#86efac';
+    bugMsg.innerHTML = document.getElementById('tpl-perfect-msg').innerHTML;
+  } else {
+    bugMsg.innerHTML = document.getElementById('tpl-bug-msg').innerHTML;
+  }
+}
+
+function restart() {
+  currentCheck = 0; answers = [];
+  document.getElementById('actualVal').innerHTML =
+    `<span class="cm" data-i18n="ide-actual-unknown">// ???</span>
+     <span class="bug-badge" id="bugBadge" data-i18n="bug-label">ERROR</span>`;
+  document.getElementById('consoleOut').innerHTML =
+    `<span style="color:#4a6a70;" data-i18n="console-initial">// Responde las verificaciones para ver el resultado</span>`;
+  document.getElementById('consoleWarn').style.display = 'none';
+  document.getElementById('screen-summary').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  showCheck(0);
+}
+
+document.getElementById('btnStart').addEventListener('click', () => {
+  document.getElementById('screen-intro').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  showCheck(0);
+});
+
+// Init dots on load
+buildDots();
+</script>
+</body>
+</html>
