@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cómo Probar Código de Loops Generado por IA</title>
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --teal:    #0093a4;
+    --purple:  #8c52ba;
+    --red:     #ed6060;
+    --light:   #b2dee3;
+    --dark:    #003f47;
+    --bg:      #f0f9fb;
+    --card:    #ffffff;
+    --text:    #1a2e33;
+    --muted:   #5a7a82;
+    --pass:    #22c55e;
+    --fail:    #ef4444;
+    --ide-bg:  #0f1e22;
+    --ide-dim: #1e3438;
+    --ide-txt: #d4e8ec;
+    --kw:      #5dd8f0;
+    --num:     #f5a623;
+    --cm:      #6a9da8;
+    --str:     #98e06b;
+    --shadow:  0 4px 20px rgba(0,147,164,0.12);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Nunito', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; min-height: 100vh; flex-direction: column; }
+  .screen.active { display: flex; }
+
+  /* ══════════════════════════════
+     INTRO SCREEN
+  ══════════════════════════════ */
+  #screen-intro {
+    background: linear-gradient(145deg, #003f47 0%, #0a5c6b 55%, #1a7a8c 100%);
+    align-items: center; justify-content: center;
+    padding: 40px 20px;
+    position: relative; overflow: hidden;
+  }
+  #screen-intro::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 70% 20%, rgba(0,147,164,0.25) 0%, transparent 60%),
+                radial-gradient(ellipse at 20% 80%, rgba(140,82,186,0.2) 0%, transparent 50%);
+  }
+  .intro-inner { position: relative; max-width: 640px; width: 100%; text-align: center; }
+  .unit-tag {
+    display: inline-block; background: rgba(0,147,164,0.3);
+    border: 1px solid rgba(0,147,164,0.6);
+    color: var(--light); font-size: 11px; font-weight: 700; letter-spacing: 2px;
+    text-transform: uppercase; padding: 5px 14px; border-radius: 20px; margin-bottom: 20px;
+  }
+  .intro-title { font-size: clamp(26px,5vw,46px); font-weight: 900; color: #fff; line-height: 1.15; margin-bottom: 8px; }
+  .intro-title span { color: var(--teal); }
+  .intro-sub { font-size: 15px; color: rgba(180,220,228,0.9); margin-bottom: 28px; max-width: 480px; margin-left: auto; margin-right: auto; }
+  .scene-card {
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(0,147,164,0.3);
+    border-radius: 16px; padding: 20px 24px; margin-bottom: 24px; text-align: left; display: flex; gap: 16px; align-items: flex-start;
+  }
+  .scene-avatar { width: 56px; height: 56px; border-radius: 50%; background: var(--teal); display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .scene-bubble { flex: 1; }
+  .scene-name { font-size: 11px; font-weight: 700; color: var(--teal); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 6px; }
+  .scene-text { font-size: 14px; color: rgba(210,235,240,0.95); line-height: 1.55; }
+  .mission-box {
+    background: rgba(0,0,0,0.25); border-left: 3px solid var(--teal);
+    border-radius: 0 10px 10px 0; padding: 14px 18px; margin-bottom: 28px; text-align: left;
+  }
+  .mission-box h3 { font-size: 12px; font-weight: 700; color: var(--teal); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .mission-box p { font-size: 14px; color: rgba(200,230,235,0.9); line-height: 1.5; }
+  .btn-start {
+    background: var(--teal); color: #fff;
+    border: none; border-radius: 12px;
+    font-family: 'Nunito', sans-serif; font-size: 16px; font-weight: 800;
+    padding: 14px 36px; cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0,147,164,0.4);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,147,164,0.5); }
+
+  /* ══════════════════════════════
+     ACTIVITY SCREEN
+  ══════════════════════════════ */
+  #screen-activity { flex-direction: column; }
+
+  .top-bar {
+    background: var(--dark); color: #fff;
+    padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap;
+  }
+  .top-bar-title { font-size: 13px; font-weight: 700; color: var(--light); }
+  .progress-wrap { display: flex; align-items: center; gap: 8px; }
+  .progress-label { font-size: 11px; color: var(--light); white-space: nowrap; }
+  .sdots { display: flex; gap: 6px; }
+  .sdot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.3);
+    transition: background .3s, border-color .3s;
+  }
+  .sdot.active  { background: var(--teal);  border-color: var(--teal); }
+  .sdot.pass    { background: var(--pass);  border-color: var(--pass); }
+  .sdot.fail    { background: var(--fail);  border-color: var(--fail); }
+
+  .activity-body {
+    flex: 1; display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  @media (max-width: 700px) { .activity-body { grid-template-columns: 1fr; } }
+
+  /* ── Left: IDE ── */
+  .ide-panel {
+    background: var(--ide-bg);
+    padding: 0; display: flex; flex-direction: column; min-height: 400px;
+  }
+  .ide-tab {
+    background: var(--ide-dim); padding: 8px 16px;
+    display: flex; align-items: center; gap: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .ide-tab-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .ide-tab-name { font-family: 'Fira Code', monospace; font-size: 12px; color: #94a3b8; }
+  .ide-code { padding: 20px; flex: 1; font-family: 'Fira Code', monospace; font-size: 13px; line-height: 1.85; }
+  .ide-code .cm  { color: var(--cm); }
+  .ide-code .kw  { color: var(--kw); }
+  .ide-code .nm  { color: var(--num); }
+  .ide-code .st  { color: var(--str); }
+  .ide-code .fn  { color: #c9a0ff; }
+  .bug-badge {
+    display: inline-block; background: var(--fail);
+    color: #fff; font-size: 9px; font-weight: 800; letter-spacing: 1px;
+    padding: 1px 6px; border-radius: 4px; margin-left: 6px; vertical-align: middle;
+    opacity: 0; transition: opacity .4s;
+  }
+  .bug-badge.show { opacity: 1; }
+  .console-panel {
+    background: #060e10; border-top: 1px solid rgba(255,255,255,0.05);
+    padding: 12px 16px;
+  }
+  .console-label { font-family: 'Fira Code', monospace; font-size: 10px; color: #4a6a70; letter-spacing: 1px; margin-bottom: 6px; }
+  .console-out { font-family: 'Fira Code', monospace; font-size: 13px; color: #7fbfc8; line-height: 1.8; white-space: pre; }
+  .console-warn { color: #f5a623; font-size: 12px; margin-top: 4px; font-family: 'Fira Code', monospace; display: none; }
+
+  /* ── Right: Check panel ── */
+  .check-panel { background: var(--card); padding: 24px; display: flex; flex-direction: column; overflow-y: auto; }
+  .check-step-tag {
+    display: inline-block; font-size: 10px; font-weight: 800;
+    letter-spacing: 2px; text-transform: uppercase;
+    color: var(--teal); margin-bottom: 8px;
+  }
+  .check-title { font-size: 20px; font-weight: 900; color: var(--dark); margin-bottom: 10px; }
+  .check-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+  .question-box {
+    background: #f0f9fb; border: 1.5px solid var(--light);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;
+  }
+  .question-box p { font-size: 14px; font-weight: 700; color: var(--dark); }
+
+  .answer-btns { display: flex; gap: 10px; margin-bottom: 18px; }
+  .btn-yes, .btn-no {
+    flex: 1; padding: 11px 10px; border-radius: 10px; border: 2px solid;
+    font-family: 'Nunito', sans-serif; font-size: 14px; font-weight: 800;
+    cursor: pointer; transition: transform .12s, box-shadow .12s;
+  }
+  .btn-yes { background: #f0fdf4; border-color: var(--pass); color: #166534; }
+  .btn-no  { background: #fef2f2; border-color: var(--fail); color: #991b1b; }
+  .btn-yes:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(34,197,94,0.25); }
+  .btn-no:hover  { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(239,68,68,0.25); }
+  .btn-yes:disabled, .btn-no:disabled { opacity: 0.45; cursor: default; transform: none; box-shadow: none; }
+
+  .feedback-box {
+    border-radius: 10px; padding: 14px 16px; font-size: 13.5px; line-height: 1.55;
+    display: none; margin-bottom: 16px;
+  }
+  .feedback-box.pass { background: #f0fdf4; border: 1.5px solid #86efac; color: #14532d; }
+  .feedback-box.fail { background: #fef2f2; border: 1.5px solid #fca5a5; color: #7f1d1d; }
+
+  .char-hint { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 16px; }
+  .char-mini { width: 34px; height: 34px; border-radius: 50%; background: var(--purple); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+  .char-speech { background: #f9f4ff; border: 1.5px solid #d4b8f0; border-radius: 0 10px 10px 10px; padding: 10px 13px; font-size: 13px; color: #3b1f60; line-height: 1.5; }
+
+  .btn-next {
+    margin-top: auto; background: var(--teal); color: #fff;
+    border: none; border-radius: 10px;
+    font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800;
+    padding: 12px 24px; cursor: pointer; display: none;
+    transition: transform .12s, box-shadow .12s;
+  }
+  .btn-next:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,147,164,0.35); }
+
+  /* ══════════════════════════════
+     SUMMARY SCREEN
+  ══════════════════════════════ */
+  #screen-summary {
+    background: linear-gradient(145deg, #003f47, #0a5c6b);
+    align-items: center; justify-content: center; padding: 40px 20px;
+  }
+  .summary-inner { max-width: 580px; width: 100%; }
+  .summary-title { font-size: clamp(22px,4vw,36px); font-weight: 900; color: #fff; margin-bottom: 6px; text-align: center; }
+  .summary-sub { font-size: 14px; color: var(--light); text-align: center; margin-bottom: 28px; }
+  .result-cards { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  .result-card {
+    background: rgba(255,255,255,0.08); border-radius: 10px; padding: 12px 16px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .result-icon { font-size: 20px; }
+  .result-info { flex: 1; }
+  .result-label { font-size: 13px; font-weight: 700; color: #fff; }
+  .result-verdict { font-size: 12px; margin-top: 2px; }
+  .result-verdict.pass { color: #86efac; }
+  .result-verdict.fail { color: #fca5a5; }
+  .score-box {
+    background: var(--teal); border-radius: 12px; padding: 16px 20px; text-align: center; margin-bottom: 20px;
+  }
+  .score-box p { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 2px; }
+  .score-box .score-num { font-size: 42px; font-weight: 900; color: #fff; }
+  .score-box .score-den { font-size: 22px; color: rgba(255,255,255,0.7); }
+  .bug-found-msg { background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; font-size: 14px; color: #fca5a5; line-height: 1.55; }
+  .btn-restart {
+    width: 100%; background: rgba(255,255,255,0.1); color: #fff; border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 10px; font-family: 'Nunito', sans-serif; font-size: 15px; font-weight: 800;
+    padding: 12px; cursor: pointer; transition: background .2s;
+  }
+  .btn-restart:hover { background: rgba(255,255,255,0.2); }
+
+  /* live region */
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+</style>
+</head>
+<body>
+
+<div aria-live="polite" aria-atomic="true" class="sr-only" id="live-region"></div>
+
+<!-- ══════════ INTRO ══════════ -->
+<div class="screen active" id="screen-intro">
+  <div class="intro-inner">
+    <div class="unit-tag">Unidad 4 · Loops e IA</div>
+    <h1 class="intro-title">Cómo Probar Código de<br><span>Loops Generado</span><br>por IA</h1>
+    <p class="intro-sub">Una rutina reutilizable de 6 pasos para evaluar loops antes de confiar en ellos en tus proyectos del aula.</p>
+    <div class="scene-card">
+      <div class="scene-avatar">👩‍🏫</div>
+      <div class="scene-bubble">
+        <div class="scene-name">Sra. Rivera</div>
+        <div class="scene-text">Alex me acaba de mostrar un código de loop que generó la IA. Se <em>ve</em> correcto — ¿pero realmente funciona? Vamos a descubrirlo juntos.</div>
+      </div>
+    </div>
+    <div class="mission-box">
+      <h3>Tu Misión</h3>
+      <p>Ejecuta las <strong>6 verificaciones</strong> en el loop de Alex generado por IA. Responde Sí o No en cada prueba. Descubre si el código es seguro de usar — o si hay un error oculto.</p>
+    </div>
+    <button class="btn-start" id="btnStart">Comenzar a Depurar con Alex →</button>
+  </div>
+</div>
+
+<!-- ══════════ ACTIVITY ══════════ -->
+<div class="screen" id="screen-activity">
+  <div class="top-bar">
+    <span class="top-bar-title">Cómo Probar Código de Loops Generado por IA</span>
+    <div class="progress-wrap">
+      <span class="progress-label" id="progressLabel">Verificación 1 de 6</span>
+      <div class="sdots" id="sdots"></div>
+    </div>
+  </div>
+
+  <div class="activity-body">
+    <!-- IDE -->
+    <div class="ide-panel">
+      <div class="ide-tab">
+        <div class="ide-tab-dot" style="background:#ef4444"></div>
+        <div class="ide-tab-dot" style="background:#f5a623"></div>
+        <div class="ide-tab-dot" style="background:#22c55e"></div>
+        <span class="ide-tab-name">loop_de_alex.js</span>
+      </div>
+      <div class="ide-code" id="ideCode">
+        <div><span class="cm">// Alex le pidió a la IA: "Imprime los números del 1 al 5"</span></div>
+        <div>&nbsp;</div>
+        <div><span class="kw">for</span> (<span class="kw">let</span> i = <span class="nm">0</span>; i &lt; <span class="nm">5</span>; i++) {</div>
+        <div>&nbsp; <span class="fn">console</span>.<span class="fn">log</span>(i);</div>
+        <div>}</div>
+        <div>&nbsp;</div>
+        <div><span class="cm">// Resultado esperado:</span></div>
+        <div><span class="cm">// 1, 2, 3, 4, 5</span></div>
+        <div>&nbsp;</div>
+        <div id="actualLine"><span class="cm">// Resultado real:</span></div>
+        <div id="actualVal"><span class="cm">// ???</span> <span class="bug-badge" id="bugBadge">ERROR</span></div>
+      </div>
+      <div class="console-panel">
+        <div class="console-label">▸ Consola</div>
+        <div class="console-out" id="consoleOut"><span style="color:#4a6a70;">// Responde las verificaciones para ver el resultado</span></div>
+        <div class="console-warn" id="consoleWarn">// ⚠ 6 valores — ¡se esperaban 5!</div>
+      </div>
+    </div>
+
+    <!-- Check panel -->
+    <div class="check-panel" id="checkPanel">
+      <div class="check-step-tag" id="stepTag">Verificación 1 de 6</div>
+      <h2 class="check-title" id="checkTitle"></h2>
+      <p class="check-desc" id="checkDesc"></p>
+      <div class="question-box"><p id="checkQuestion"></p></div>
+      <div class="answer-btns">
+        <button class="btn-yes" id="btnYes" onclick="answer(true)">✓ Sí, pasa la prueba</button>
+        <button class="btn-no"  id="btnNo"  onclick="answer(false)">✗ No, hay un problema</button>
+      </div>
+      <div class="feedback-box" id="feedbackBox"></div>
+      <div class="char-hint" id="charHint" style="display:none">
+        <div class="char-mini" id="charIcon">👩‍🎓</div>
+        <div class="char-speech" id="charSpeech"></div>
+      </div>
+      <button class="btn-next" id="btnNext" onclick="nextCheck()"></button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ SUMMARY ══════════ -->
+<div class="screen" id="screen-summary">
+  <div class="summary-inner">
+    <h2 class="summary-title" id="summaryTitle">🔍 ¡Depuración Completa!</h2>
+    <p class="summary-sub">Esto es lo que encontraste en el loop de Alex generado por IA.</p>
+    <div class="result-cards" id="resultCards"></div>
+    <div class="score-box">
+      <p>Verificaciones superadas</p>
+      <span class="score-num" id="scoreNum">0</span><span class="score-den">/6</span>
+    </div>
+    <div class="bug-found-msg" id="bugFoundMsg"></div>
+    <button class="btn-restart" onclick="restart()">↺ Intentar de Nuevo</button>
+  </div>
+</div>
+
+<script>
+/* ── DATOS DE LAS VERIFICACIONES ── */
+const CHECKS = [
+  {
+    title:    "Prueba del Primer Valor",
+    desc:     "¿El loop comienza donde se espera? El loop de Alex empieza en i = 0, pero Alex quería imprimir desde el 1.",
+    question: "¿El loop comienza en el valor correcto (1)?",
+    correct:  false,
+    feedback: {
+      yes: "¡Revisa otra vez! El loop empieza en <code>i = 0</code>, ¡no en 1. Eso significa que el primer número impreso será 0, no 1.",
+      no:  "¡Exacto! El loop empieza en <code>i = 0</code>, pero debería comenzar en <code>i = 1</code>. Ese primer valor incorrecto es la raíz del problema."
+    },
+    hint:     { icon: "👩‍🏫", who: "Sra. Rivera", text: "Pregúntale a la IA: '¿Cuál es el valor de i en la primera iteración del loop?' Esa sola pregunta te revela el error." }
+  },
+  {
+    title:    "Prueba del Último Valor",
+    desc:     "¿El loop se detiene en el valor final correcto? La condición es <code>i < 5</code>, así que el último valor de i es 4.",
+    question: "¿El loop termina en el valor correcto (5)?",
+    correct:  false,
+    feedback: {
+      yes: "¡Vuelve a verificar! Con <code>i < 5</code>, el loop se detiene cuando i llega a 5 — pero nunca imprime 5. El último valor impreso es 4.",
+      no:  "¡Correcto! La condición <code>i < 5</code> hace que el loop se detenga antes de imprimir 5. El loop imprime 0, 1, 2, 3, 4 — ¡nunca llega al 5!"
+    },
+    hint: { icon: "🧑‍💻", who: "Alex", text: "Agrego un console.log al final... y veo que el último número es 4. ¡Eso está mal! Se suponía que imprimiera hasta el 5." }
+  },
+  {
+    title:    "Prueba de Borde",
+    desc:     "¿Qué sucede en los límites del loop? Con <code>i = 0</code> como inicio y <code>i < 5</code> como condición, ¿cuántas iteraciones ocurren en total?",
+    question: "¿El loop ejecuta exactamente 5 iteraciones (sin más ni menos)?",
+    correct:  false,
+    feedback: {
+      yes: "¡Cuidado! El loop ejecuta 5 iteraciones (i = 0, 1, 2, 3, 4), pero los 5 valores son 0–4, ¡no 1–5! El conteo es correcto, pero los valores están desplazados.",
+      no:  "¡Muy bien! Aunque el loop ejecuta exactamente 5 iteraciones, los valores están desplazados: 0, 1, 2, 3, 4 en lugar de 1, 2, 3, 4, 5. El número de repeticiones está bien, ¡pero el rango no!"
+    },
+    hint: { icon: "👩‍🏫", who: "Sra. Rivera", text: "Hay una diferencia entre 'número de iteraciones' y 'valores impresos'. Este loop itera 5 veces — ¡pero imprime los números incorrectos!" }
+  },
+  {
+    title:    "Verificación de Iteración Extra",
+    desc:     "¿El loop corre una vez de más accidentalmente? Con <code>i = 0</code> y <code>i < 5</code>, obtenemos i = 0, 1, 2, 3, 4 — eso son 5 valores, pero incluye el 0.",
+    question: "¿El loop corre exactamente la cantidad correcta de veces sin iteraciones extra?",
+    correct:  false,
+    feedback: {
+      yes: "¡Espera! El loop imprime 0, 1, 2, 3, 4 — eso son 5 números, pero se pidió imprimir del 1 al 5. El 0 es una iteración extra que no debería estar.",
+      no:  "¡Perfecto! El 0 es una iteración extra no deseada. Iniciando en i = 0 se obtiene un número más de lo que Alex quería — el código de la IA tiene un error clásico de uno de más."
+    },
+    hint: { icon: "🧑‍💻", who: "Alex", text: "Entonces, ¿la IA me dio un error de 'uno de más'? Si empezara en i = 1, ¡obtendría exactamente 1, 2, 3, 4, 5!" }
+  },
+  {
+    title:    "Verificación de Iteración Faltante",
+    desc:     "¿El loop se detiene demasiado pronto? La condición es <code>i < 5</code>, así que el 5 nunca se imprime. Alex quería imprimir del 1 al 5 — el 5 es el valor faltante.",
+    question: "¿El loop imprime todos los valores requeridos (1 al 5 inclusive)?",
+    correct:  false,
+    feedback: {
+      yes: "¡Revisa la consola! El 5 nunca aparece en la salida. Con <code>i < 5</code>, el loop se detiene cuando i = 4. El 5 es la iteración faltante.",
+      no:  "¡Exacto! El número 5 nunca se imprime porque la condición <code>i < 5</code> excluye el 5. Para incluirlo, necesitaríamos <code>i <= 5</code> — pero también habría que arreglar el valor inicial."
+    },
+    hint: { icon: "👩‍🏫", who: "Sra. Rivera", text: "Siempre revisa si el último valor requerido aparece en la salida. Aquí, el 5 estará ausente — ese es el valor faltante." }
+  },
+  {
+    title:    "Verificación de Coincidencia",
+    desc:     "¿La salida real coincide con lo que se solicitó? Alex le pidió a la IA que imprimiera los números del 1 al 5. La salida real es: 0, 1, 2, 3, 4.",
+    question: "¿La salida coincide exactamente con el comportamiento solicitado?",
+    correct:  false,
+    feedback: {
+      yes: "¡Mira más de cerca! Alex pidió 1, 2, 3, 4, 5 — pero la IA generó código que imprime 0, 1, 2, 3, 4. ¡No coincide en absoluto!",
+      no:  "¡Perfecto! La salida real (0, 1, 2, 3, 4) no coincide con lo que se pidió (1, 2, 3, 4, 5). Este es el momento de pedirle a la IA que lo corrija: cambiar <code>i = 0</code> a <code>i = 1</code> y <code>i < 5</code> a <code>i <= 5</code>."
+    },
+    hint: { icon: "🧑‍💻", who: "Alex", text: "Así que la IA no entendió bien el prompt, ¿verdad? Probablemente deba dar instrucciones más claras la próxima vez, como 'comienza en 1 e incluye el 5'." }
+  }
+];
+
+let currentCheck = 0;
+let answers = [];
+
+function announce(msg) {
+  const r = document.getElementById('live-region');
+  r.textContent = '';
+  setTimeout(() => r.textContent = msg, 50);
+}
+
+function buildDots() {
+  const wrap = document.getElementById('sdots');
+  wrap.innerHTML = '';
+  CHECKS.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'sdot' + (i === currentCheck ? ' active' : '');
+    d.setAttribute('aria-label', `Verificación ${i+1}`);
+    wrap.appendChild(d);
+  });
+}
+
+function updateDots() {
+  const dots = document.querySelectorAll('.sdot');
+  answers.forEach((a, i) => {
+    dots[i].classList.remove('active','pass','fail');
+    dots[i].classList.add(a === CHECKS[i].correct ? 'pass' : 'fail');
+  });
+  if (currentCheck < CHECKS.length) {
+    dots[currentCheck].classList.remove('active','pass','fail');
+    dots[currentCheck].classList.add('active');
+  }
+}
+
+function renderCheck() {
+  const c = CHECKS[currentCheck];
+  document.getElementById('progressLabel').textContent = `Verificación ${currentCheck + 1} de 6`;
+  document.getElementById('stepTag').textContent = `Verificación ${currentCheck + 1} de 6`;
+  document.getElementById('checkTitle').textContent = c.title;
+  document.getElementById('checkDesc').innerHTML = c.desc;
+  document.getElementById('checkQuestion').textContent = c.question;
+  document.getElementById('feedbackBox').style.display = 'none';
+  document.getElementById('charHint').style.display = 'none';
+  document.getElementById('btnNext').style.display = 'none';
+  document.getElementById('btnYes').disabled = false;
+  document.getElementById('btnNo').disabled = false;
+  buildDots();
+}
+
+function answer(isYes) {
+  const c = CHECKS[currentCheck];
+  answers[currentCheck] = isYes;
+  document.getElementById('btnYes').disabled = true;
+  document.getElementById('btnNo').disabled = true;
+
+  const fb = document.getElementById('feedbackBox');
+  fb.innerHTML = (isYes ? '👤 <strong>Respondiste: Sí</strong><br>' : '👤 <strong>Respondiste: No</strong><br>') +
+                 (isYes ? c.feedback.yes : c.feedback.no);
+  fb.className = 'feedback-box ' + (isYes === c.correct ? 'pass' : 'fail');
+  fb.style.display = 'block';
+
+  // Show character hint
+  const hint = c.hint;
+  document.getElementById('charIcon').textContent = hint.icon;
+  document.getElementById('charSpeech').textContent = hint.text;
+  document.getElementById('charHint').style.display = 'flex';
+
+  // Reveal bug on check 6
+  if (currentCheck === 5) {
+    document.getElementById('actualVal').innerHTML = '<span class="cm">// 0, 1, 2, 3, 4, 5  ← ¡6 valores!</span> <span class="bug-badge show" id="bugBadge">ERROR</span>';
+    document.getElementById('consoleOut').textContent = '0\n1\n2\n3\n4\n5';
+    document.getElementById('consoleWarn').style.display = 'block';
+  }
+
+  updateDots();
+  const next = document.getElementById('btnNext');
+  next.style.display = 'block';
+  next.textContent = currentCheck < 5 ? 'Siguiente Verificación →' : 'Ver Resultados →';
+  announce(isYes === c.correct ? '¡Correcto! ' + c.feedback[isYes ? 'yes' : 'no'] : 'No del todo. ' + c.feedback[isYes ? 'yes' : 'no']);
+}
+
+function nextCheck() {
+  currentCheck++;
+  if (currentCheck >= CHECKS.length) { showSummary(); return; }
+  renderCheck();
+  announce(`Verificación ${currentCheck + 1} de 6: ${CHECKS[currentCheck].title}`);
+}
+
+function showSummary() {
+  document.getElementById('screen-activity').classList.remove('active');
+  document.getElementById('screen-summary').classList.add('active');
+
+  const cards = document.getElementById('resultCards');
+  cards.innerHTML = '';
+  let score = 0;
+  CHECKS.forEach((c, i) => {
+    const correct = answers[i] === c.correct;
+    if (correct) score++;
+    const div = document.createElement('div');
+    div.className = 'result-card';
+    div.innerHTML = `<div class="result-icon">${correct ? '✅' : '❌'}</div>
+      <div class="result-info">
+        <div class="result-label">${c.title}</div>
+        <div class="result-verdict ${correct ? 'pass' : 'fail'}">${correct ? 'Respondiste correctamente' : 'Respuesta incorrecta'}</div>
+      </div>`;
+    cards.appendChild(div);
+  });
+
+  document.getElementById('scoreNum').textContent = score;
+
+  const bugMsg = document.getElementById('bugFoundMsg');
+  if (score === 6) {
+    bugMsg.style.background = 'rgba(34,197,94,0.15)';
+    bugMsg.style.borderColor = 'rgba(34,197,94,0.4)';
+    bugMsg.style.color = '#86efac';
+    bugMsg.innerHTML = '🎉 ¡Puntuación perfecta! Identificaste todos los problemas del loop de Alex. El error principal: la IA empezó el loop en <code>i = 0</code> en lugar de <code>i = 1</code>, y usó <code>i &lt; 5</code> en lugar de <code>i &lt;= 5</code>.';
+  } else {
+    bugMsg.innerHTML = `🐛 El error principal del loop: la IA empezó en <code>i = 0</code> en lugar de <code>i = 1</code>, y la condición <code>i &lt; 5</code> excluye el 5. La corrección: <code>for (let i = 1; i &lt;= 5; i++)</code>`;
+  }
+  announce(`Depuración completa. Obtuviste ${score} de 6.`);
+}
+
+function restart() {
+  currentCheck = 0; answers = [];
+  document.getElementById('actualVal').innerHTML = '<span class="cm">// ???</span>';
+  document.getElementById('consoleOut').innerHTML = '<span style="color:#4a6a70;">// Responde las verificaciones para ver el resultado</span>';
+  document.getElementById('consoleWarn').style.display = 'none';
+  document.getElementById('screen-summary').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  renderCheck();
+}
+
+document.getElementById('btnStart').addEventListener('click', () => {
+  document.getElementById('screen-intro').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  renderCheck();
+  announce('Actividad iniciada. Verificación 1 de 6: Prueba del Primer Valor');
+});
+
+renderCheck();
+</script>
+</body>
+</html>
