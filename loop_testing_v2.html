@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Debugging AI-Generated Loops</title>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; font-family: 'Geist', sans-serif; background: #f5f5f7; color: #000; overflow: hidden; }
+
+.skip-link { position: absolute; top: -999px; left: -999px; background: #6A62D9; color: #fff; padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 0.9rem; z-index: 9999; text-decoration: none; }
+.skip-link:focus { top: 12px; left: 12px; }
+
+.screen { display: none; width: 100%; height: 100vh; flex-direction: column; overflow: hidden; }
+.screen.active { display: flex; }
+
+/* ══ INTRO SCREEN ══ */
+#screen-intro {
+  background: #f5f5f7;
+  overflow-y: auto;
+  align-items: center;
+  padding: 36px 24px 60px;
+}
+.intro-page {
+  max-width: 680px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+
+.hero {
+  background: #6A62D9; border-radius: 16px; padding: 28px 32px;
+  color: #fff; display: flex; gap: 24px; align-items: center;
+  position: relative; overflow: hidden;
+}
+.hero::before { content: ''; position: absolute; top: -50px; right: -50px; width: 180px; height: 180px; background: rgba(255,255,255,0.06); border-radius: 50%; pointer-events: none; }
+.hero::after  { content: ''; position: absolute; bottom: -40px; left: 20%; width: 140px; height: 140px; background: rgba(255,255,255,0.04); border-radius: 50%; pointer-events: none; }
+.hero-text { flex: 1; position: relative; z-index: 1; }
+.hero-eyebrow { font-size: 0.68rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 8px; }
+.hero-title { font-size: 1.5rem; font-weight: 900; color: #fff; line-height: 1.2; letter-spacing: -0.3px; margin-bottom: 8px; }
+.hero-sub { font-size: 0.82rem; color: rgba(255,255,255,0.8); line-height: 1.6; }
+.hero-img { width: 100px; height: 100px; object-fit: cover; object-position: top; border-radius: 12px; border: 2.5px solid rgba(255,255,255,0.25); flex-shrink: 0; position: relative; z-index: 1; display: block; }
+
+.scenario-card { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 14px; overflow: hidden; }
+.scenario-header { background: #000; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+.scenario-header-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+.scenario-header-title { font-size: 0.8rem; font-weight: 700; color: #fff; }
+.scenario-body { padding: 18px 20px; display: flex; gap: 18px; align-items: flex-start; }
+.scenario-img { width: 86px; height: 86px; object-fit: cover; object-position: top; border-radius: 10px; border: 2px solid #e5e5e5; flex-shrink: 0; display: block; }
+.scenario-text { flex: 1; }
+.scenario-scene-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #6A62D9; margin-bottom: 6px; }
+.scenario-quote { font-size: 0.85rem; color: #111; line-height: 1.65; font-style: italic; border-left: 3px solid #6A62D9; padding-left: 12px; margin-bottom: 10px; }
+.scenario-body-text { font-size: 0.8rem; color: #444; line-height: 1.65; }
+.scenario-body-text strong { color: #000; font-weight: 700; }
+
+.code-preview { background: #1e1e2e; border-radius: 14px; overflow: hidden; border: 1.5px solid #2d2d42; }
+.code-preview-header { background: #181825; padding: 8px 14px; display: flex; align-items: center; gap: 7px; border-bottom: 1px solid #2d2d42; }
+.cp-dot { width: 9px; height: 9px; border-radius: 50%; }
+.cp-dot.r { background: #ff5f57; } .cp-dot.y { background: #febc2e; } .cp-dot.g { background: #28c840; }
+.cp-label { font-family: 'Fira Code', monospace; font-size: 0.67rem; color: #6c7086; margin-left: 4px; }
+.code-preview-body { padding: 14px 18px; font-family: 'Fira Code', monospace; font-size: 0.78rem; line-height: 1.8; }
+
+.mission-box { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 14px; padding: 18px 20px; }
+.mission-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #6A62D9; margin-bottom: 10px; }
+.mission-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.mission-step { background: #f5f5f7; border: 1.5px solid #e5e5e5; border-radius: 8px; padding: 8px 12px; font-size: 0.75rem; font-weight: 600; color: #333; display: flex; align-items: center; gap: 7px; }
+.mission-step-num { width: 20px; height: 20px; border-radius: 50%; background: #6A62D9; color: #fff; font-size: 0.65rem; font-weight: 900; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.mission-divider { height: 1px; background: #e5e5e5; margin-bottom: 12px; }
+.mission-desc { font-size: 0.8rem; color: #555; line-height: 1.65; }
+.mission-desc strong { color: #000; }
+
+.btn-start { background: #6A62D9; color: #fff; border: none; border-radius: 10px; padding: 14px 36px; font-family: 'Geist', sans-serif; font-size: 0.95rem; font-weight: 700; cursor: pointer; width: 100%; box-shadow: 0 4px 20px rgba(106,98,217,0.3); transition: transform 0.15s, box-shadow 0.15s; }
+.btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(106,98,217,0.4); }
+.btn-start:focus-visible { outline: 3px solid #6A62D9; outline-offset: 3px; }
+.start-note { text-align: center; font-size: 0.7rem; color: #aaa; font-weight: 500; margin-top: -10px; }
+
+/* ══ ACTIVITY SCREEN ══ */
+#screen-activity { flex-direction: row; background: #f5f5f7; }
+
+/* IDE */
+.ide-panel { width: 50%; height: 100%; display: flex; flex-direction: column; background: #1e1e2e; border-right: 1px solid #2d2d42; flex-shrink: 0; }
+.ide-topbar { background: #181825; border-bottom: 1px solid #2d2d42; display: flex; align-items: center; flex-shrink: 0; }
+.ide-dots { display: flex; gap: 5px; padding: 9px 12px; }
+.ide-dot { width: 9px; height: 9px; border-radius: 50%; }
+.ide-dot.r { background: #ff5f57; } .ide-dot.y { background: #febc2e; } .ide-dot.g { background: #28c840; }
+.ide-tabs { display: flex; align-items: stretch; flex: 1; }
+.ide-tab { padding: 7px 14px; font-family: 'Fira Code', monospace; font-size: 0.68rem; color: #6b7280; border-right: 1px solid #2d2d42; display: flex; align-items: center; gap: 5px; }
+.ide-tab.active { background: #1e1e2e; color: #e2e8f0; }
+.ide-tab-dot { width: 5px; height: 5px; border-radius: 50%; background: #6A62D9; }
+.ide-body { flex: 1; overflow-y: auto; padding: 12px 0; scrollbar-width: thin; scrollbar-color: #2d2d42 transparent; }
+.code-line { display: flex; align-items: center; min-height: 21px; font-family: 'Fira Code', monospace; font-size: 0.75rem; line-height: 1.65; position: relative; transition: background 0.3s; }
+.code-line.hl-purple { background: rgba(106,98,217,0.18); }
+.code-line.hl-green  { background: rgba(16,185,129,0.12); }
+.line-num { width: 36px; text-align: right; padding-right: 12px; color: #3d3d5c; user-select: none; flex-shrink: 0; font-size: 0.67rem; }
+.line-code { color: #cdd6f4; flex: 1; padding-right: 12px; }
+.kw   { color: #cba6f7; }
+.fn   { color: #89b4fa; }
+.str  { color: #a6e3a1; }
+.num  { color: #fab387; }
+.cm   { color: #6c7086; font-style: italic; }
+.op   { color: #89dceb; }
+.var  { color: #cdd6f4; }
+.punc { color: #ffffff; }
+.todo { color: #fbbf24; font-style: italic; font-weight: 600; }
+.bug-tag { display: none; position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: #ef4444; color: #fff; font-size: 0.58rem; font-weight: 700; font-family: 'Geist', sans-serif; padding: 2px 7px; border-radius: 999px; }
+.bug-tag.show { display: block; }
+.ide-console { background: #11111b; border-top: 1px solid #2d2d42; padding: 8px 14px; flex-shrink: 0; min-height: 54px; }
+.console-label { font-family: 'Fira Code', monospace; font-size: 0.6rem; color: #6c7086; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+.console-out { font-family: 'Fira Code', monospace; font-size: 0.73rem; color: #6c7086; line-height: 1.5; }
+.console-out .revealed { color: #a6e3a1; }
+.console-out .warn { color: #f38ba8; }
+
+/* RIGHT PANEL */
+.right-panel { flex: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; background: #f5f5f7; }
+
+.progress-wrap { padding: 14px 20px 12px; background: #fff; border-bottom: 1px solid #e5e5e5; flex-shrink: 0; }
+.progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.progress-check-label { font-size: 0.72rem; font-weight: 700; color: #6A62D9; }
+.progress-unit-label  { font-size: 0.68rem; font-weight: 500; color: #aaa; }
+.progress-track { height: 4px; background: #e5e5e5; border-radius: 999px; overflow: hidden; }
+.progress-fill  { height: 100%; background: #6A62D9; border-radius: 999px; transition: width 0.5s ease; }
+
+.char-area { display: flex; align-items: flex-end; gap: 12px; padding: 12px 20px 10px; flex-shrink: 0; }
+.char-img  { width: 68px; height: 68px; object-fit: cover; object-position: top; border-radius: 10px; border: 2px solid #e5e5e5; flex-shrink: 0; display: block; }
+.char-name { font-size: 0.6rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px; }
+.char-name.teacher { color: #6A62D9; }
+.char-name.student  { color: #555; }
+.char-bubble { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 0 12px 12px 12px; padding: 9px 13px; font-size: 0.78rem; color: #222; line-height: 1.55; flex: 1; }
+.char-bubble.teacher-bubble { border-radius: 12px 0 12px 12px; border-color: #d4d1f5; background: #faf9ff; }
+.char-bubble code { font-family: 'Fira Code', monospace; font-size: 0.72rem; background: #f0eeff; color: #6A62D9; padding: 1px 5px; border-radius: 4px; }
+
+.check-card { margin: 0 20px; background: #fff; border: 1.5px solid #e5e5e5; border-radius: 14px; overflow: hidden; flex-shrink: 0; }
+.check-card-header { background: #6A62D9; padding: 10px 16px; display: flex; align-items: center; gap: 10px; }
+.check-card-num   { font-size: 0.62rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.65); }
+.check-card-title { font-size: 0.88rem; font-weight: 700; color: #fff; }
+.check-card-body  { padding: 14px 16px; }
+.check-question   { font-size: 0.8rem; color: #333; line-height: 1.6; margin-bottom: 14px; }
+.check-question code { font-family: 'Fira Code', monospace; font-size: 0.74rem; background: #f0eeff; color: #6A62D9; padding: 1px 5px; border-radius: 4px; }
+
+.answer-btns { display: flex; gap: 10px; }
+.btn-passes { flex: 1; background: #f0eeff; border: 1.5px solid #d4d1f5; color: #3d3a8c; border-radius: 8px; padding: 10px 14px; font-family: 'Geist', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s, border-color 0.15s; }
+.btn-passes:hover { background: #e4e1fb; border-color: #a29ff0; }
+.btn-passes:focus-visible { outline: 3px solid #6A62D9; outline-offset: 2px; }
+.btn-issue  { flex: 1; background: #f0eeff; border: 1.5px solid #d4d1f5; color: #3d3a8c; border-radius: 8px; padding: 10px 14px; font-family: 'Geist', sans-serif; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.15s, border-color 0.15s; }
+.btn-issue:hover  { background: #e4e1fb; border-color: #a29ff0; }
+.btn-issue:focus-visible  { outline: 3px solid #6A62D9; outline-offset: 2px; }
+
+.feedback-banner { display: none; margin-top: 12px; background: #f0eeff; border: 1.5px solid #d4d1f5; border-radius: 10px; padding: 12px 14px; gap: 10px; align-items: flex-start; }
+.feedback-banner.show { display: flex; }
+.feedback-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+.feedback-label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #6A62D9; margin-bottom: 3px; }
+.feedback-body  { font-size: 0.78rem; color: #333; line-height: 1.6; }
+.feedback-body code { font-family: 'Fira Code', monospace; font-size: 0.72rem; background: #e4e1fb; color: #6A62D9; padding: 1px 5px; border-radius: 4px; }
+
+.btn-next { display: none; margin: 10px 20px 0; background: #6A62D9; color: #fff; border: none; border-radius: 8px; padding: 11px 20px; font-family: 'Geist', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; width: calc(100% - 40px); box-shadow: 0 4px 14px rgba(106,98,217,0.28); flex-shrink: 0; transition: transform 0.15s; }
+.btn-next:hover { transform: translateY(-1px); }
+.btn-next:focus-visible { outline: 3px solid #6A62D9; outline-offset: 3px; }
+.btn-next.show { display: block; }
+
+/* ══ SUMMARY SCREEN ══ */
+#screen-summary { background: #f5f5f7; overflow-y: auto; align-items: center; padding: 36px 24px 60px; }
+.summary-page { max-width: 680px; width: 100%; display: flex; flex-direction: column; gap: 20px; }
+
+.completion-header { background: #6A62D9; border-radius: 16px; padding: 28px 32px; color: #fff; display: flex; gap: 24px; align-items: center; position: relative; overflow: hidden; }
+.completion-header::before { content: ''; position: absolute; top: -50px; right: -50px; width: 180px; height: 180px; background: rgba(255,255,255,0.06); border-radius: 50%; pointer-events: none; }
+.completion-header::after  { content: ''; position: absolute; bottom: -40px; left: 20%; width: 140px; height: 140px; background: rgba(255,255,255,0.04); border-radius: 50%; pointer-events: none; }
+.completion-text { flex: 1; position: relative; z-index: 1; }
+.completion-eyebrow { font-size: 0.65rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: rgba(255,255,255,0.65); margin-bottom: 8px; }
+.completion-title { font-size: 1.4rem; font-weight: 900; color: #fff; line-height: 1.2; letter-spacing: -0.3px; margin-bottom: 8px; }
+.completion-sub   { font-size: 0.8rem; color: rgba(255,255,255,0.75); line-height: 1.6; }
+.completion-img   { width: 96px; height: 96px; object-fit: cover; object-position: top; border-radius: 12px; border: 2.5px solid rgba(255,255,255,0.25); flex-shrink: 0; position: relative; z-index: 1; display: block; }
+
+.bug-callout { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 14px; overflow: hidden; }
+.bug-callout-header { background: #000; padding: 10px 18px; display: flex; align-items: center; gap: 10px; }
+.bug-callout-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: rgba(255,255,255,0.5); }
+.bug-callout-title { font-size: 0.8rem; font-weight: 700; color: #fff; }
+.bug-callout-body  { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.bug-code-wrap { background: #1e1e2e; border-radius: 10px; padding: 12px 16px; font-family: 'Fira Code', monospace; font-size: 0.76rem; line-height: 1.8; }
+.bug-line  { background: rgba(239,68,68,0.15); border-radius: 4px; padding: 0 4px; display: block; }
+.fix-line  { background: rgba(16,185,129,0.12); border-radius: 4px; padding: 0 4px; display: block; }
+.bug-explanation { font-size: 0.8rem; color: #333; line-height: 1.65; }
+.bug-explanation code { font-family: 'Fira Code', monospace; font-size: 0.74rem; background: #f0eeff; color: #6A62D9; padding: 1px 5px; border-radius: 4px; }
+
+.recap-card { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 14px; overflow: hidden; }
+.recap-header { padding: 12px 18px; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; }
+.recap-title { font-size: 0.82rem; font-weight: 700; color: #000; }
+.recap-legend { display: flex; gap: 12px; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.67rem; font-weight: 600; color: #888; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+.legend-dot.issue { background: #6A62D9; }
+.legend-dot.pass  { background: #d1d5db; }
+.recap-list { padding: 4px 0; }
+.recap-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 18px; border-bottom: 1px solid #f5f5f7; }
+.recap-row:last-child { border-bottom: none; }
+.recap-indicator { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.68rem; font-weight: 900; flex-shrink: 0; margin-top: 2px; }
+.recap-indicator.issue { background: #f0eeff; color: #6A62D9; border: 1.5px solid #d4d1f5; }
+.recap-indicator.pass  { background: #f5f5f7; color: #aaa; border: 1.5px solid #e5e5e5; }
+.recap-content { flex: 1; }
+.recap-check-name { font-size: 0.78rem; font-weight: 700; color: #000; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.recap-badge { font-size: 0.58rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; }
+.recap-badge.issue { background: #f0eeff; color: #6A62D9; }
+.recap-badge.pass  { background: #f5f5f7; color: #aaa; }
+.recap-note { font-size: 0.73rem; color: #666; line-height: 1.5; }
+.recap-note code { font-family: 'Fira Code', monospace; font-size: 0.68rem; background: #f0eeff; color: #6A62D9; padding: 1px 4px; border-radius: 4px; }
+
+.takeaway-card { background: #fff; border: 1.5px solid #e5e5e5; border-radius: 14px; padding: 16px 18px; display: flex; gap: 14px; align-items: flex-start; }
+.takeaway-img  { width: 62px; height: 62px; object-fit: cover; object-position: top; border-radius: 9px; border: 2px solid #e5e5e5; flex-shrink: 0; display: block; }
+.takeaway-name  { font-size: 0.6rem; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: #6A62D9; margin-bottom: 6px; }
+.takeaway-quote { font-size: 0.8rem; color: #222; line-height: 1.65; border-left: 3px solid #6A62D9; padding-left: 12px; font-style: italic; }
+
+.classroom-box { background: #f0eeff; border: 1.5px solid #d4d1f5; border-radius: 14px; padding: 16px 20px; }
+.classroom-label { font-size: 0.62rem; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #6A62D9; margin-bottom: 8px; }
+.classroom-text  { font-size: 0.8rem; color: #333; line-height: 1.65; }
+.classroom-text strong { color: #000; font-weight: 700; }
+
+.btn-restart { background: transparent; border: 1.5px solid #d4d1f5; color: #6A62D9; border-radius: 8px; padding: 11px 32px; font-family: 'Geist', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; width: 100%; transition: background 0.15s, border-color 0.15s; }
+.btn-restart:hover { background: #f0eeff; border-color: #a29ff0; }
+.btn-restart:focus-visible { outline: 3px solid #6A62D9; outline-offset: 3px; }
+.restart-note { text-align: center; font-size: 0.68rem; color: #aaa; margin-top: -10px; }
+.sum-divider { height: 1px; background: #e5e5e5; }
+</style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+<div aria-live="polite" aria-atomic="true" id="liveRegion" style="position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;"></div>
+
+<!-- ══════════════════════════
+  LANG BLOCK — edit text here only
+  Do not change key names or JS logic
+══════════════════════════ -->
+<script>
+const LANG = {
+  pageTitle:    "Debugging AI-Generated Loops",
+  unitName:     "Iterating with AI",
+  checklistName:"Loop Verification Checklist",
+
+  heroEyebrow:  "Loop Verification Checklist",
+  heroTitle:    "Debugging AI-Generated Loops",
+  heroSub:      "A practice simulation to help you guide students through checking AI-generated loop code before using it in class.",
+  heroImgAlt:   "Ms. Rivera, the teacher, standing in a classroom",
+
+  scenarioLabel:  "Scenario",
+  scenarioHeader: "Your Classroom — Right Now",
+  scenarioStudentLabel: "Alex, one of your students",
+  scenarioQuote: "I used AI to write my loop and something is off, but I cannot figure out what is wrong.",
+  scenarioBodyText: "You just finished teaching loops. Alex raises his hand. He used AI to generate code that <strong>almost works</strong> — it runs, but the output is not right. Sound familiar? Run through the <strong>Loop Verification Checklist</strong> alongside Alex to find the bug, the same way you would in class.",
+  scenarioImgAlt: "Alex, a student, looking frustrated at his laptop",
+
+  codeComment:   "// Alex asked AI: Print numbers 1 to 5",
+  codeExpected:  "// Expected: 1, 2, 3, 4, 5",
+  codeActual:    "// Actual:   ???",
+  codeActualRevealed: "// Actual:   0, 1, 2, 3, 4, 5  (6 values)",
+
+  missionLabel:  "Your Mission",
+  missionSteps:  ["First Value Test","Last Value Test","Edge Test","Extra Iteration","Missing Iteration","Match Check"],
+  missionDesc:   "Run each check on Alex's loop. Answer <strong>Passes</strong> or <strong>Has an Issue</strong> for each one. The bug is hiding somewhere — your job is to find it and understand exactly why it matters before your students hit the same wall.",
+  startBtn:      "Start the Loop Verification Checklist →",
+  startNote:     "6 checks · approx. 5 minutes",
+
+  progressUnit:  "Iterating with AI",
+  progressOf:    "Check {n} of 6",
+
+  teacherName:   "Ms. Rivera",
+  studentName:   "Alex",
+  teacherImgUrl: "https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/teacher_veo.png",
+  studentImgUrl: "https://raw.githubusercontent.com/amandadennard-dotcom/Unit4_testing/main/student_veo.png",
+  teacherImgAlt: "Ms. Rivera, the teacher",
+  studentImgAlt: "Alex, the student",
+
+  btnPasses:     "✓ Passes",
+  btnIssue:      "✗ Has an Issue",
+  btnPassesAriaPrefix: "For {title}: answer Passes",
+  btnIssueAriaPrefix:  "For {title}: answer Has an Issue",
+  btnNext:       "Next Check →",
+  btnSeeResults: "See Results →",
+  bugTagLabel:   "BUG",
+
+  consoleLabel:   "▸ Console",
+  consoleInitial: "// Run the checks to reveal the output",
+
+  checks: [
+    {
+      title:        "First Value Test",
+      teacherLine:  "Look closely at where i starts. Alex asked for numbers beginning at 1. What does the code actually say?",
+      studentLine:  "The AI said starting at 0 is fine because it adjusts with the condition. Is that right?",
+      showTeacher:  true,
+      highlightLine:"line-3",
+      question:     "Does the loop start where Alex expected? He asked for numbers starting at <code>1</code>. Does <code>i = 0</code> match that?",
+      correctIsIssue: true,
+      goodInstinctLabel: "Good instinct — there is an issue",
+      goodInstinctBody:  "<code>i</code> starts at <code>0</code>, but Alex asked for numbers starting at <code>1</code>. The loop will include 0 in its output. That is the first sign of a bug. Keep going to see the full picture.",
+      checkAgainLabel:   "Check again — the logic does not pass here",
+      checkAgainBody:    "Look at the starting value: <code>i = 0</code>. Alex asked for numbers starting at <code>1</code>. The loop starts one step too early. This is already off before it runs a single time.",
+      studentReactionCorrect:   "Oh! So it starts at 0, not 1? I did not even notice that. So it is already wrong from the very first number?",
+      studentReactionIncorrect: "Wait, i starts at 0? I thought 0 and 1 were basically the same thing in loops. Are they not?",
+      consoleMsg:   null,
+      showBugTag:   false
+    },
+    {
+      title:        "Last Value Test",
+      teacherLine:  "The last value looks okay on its own. But remember, we found a problem in check 1. Could that affect the total count?",
+      studentLine:  "So i <= 5 is okay... but something still feels off.",
+      showTeacher:  true,
+      highlightLine:"line-3",
+      question:     "Does the loop stop at the right place? Alex wanted to end at 5. Does <code>i &lt;= 5</code> stop correctly?",
+      correctIsIssue: false,
+      goodInstinctLabel: "Good instinct — this one holds",
+      goodInstinctBody:  "<code>i &lt;= 5</code> does stop when i reaches 5. The upper boundary is correct on its own. But combined with what we found in check 1, the full picture is still off.",
+      checkAgainLabel:   "Check again — the logic does pass here",
+      checkAgainBody:    "<code>i &lt;= 5</code> does include 5 and stops correctly after. The last value condition is fine on its own. The issue is elsewhere in the loop.",
+      studentReactionCorrect:   "So the stopping point is fine... then the problem must be somewhere else.",
+      studentReactionIncorrect: "Oh, so i <= 5 actually works correctly? Then where is the real problem?",
+      consoleMsg:   null,
+      showBugTag:   false
+    },
+    {
+      title:        "Edge Test",
+      teacherLine:  "Edge cases are where loops often break. Check whether the loop handles the boundary at exactly 5 correctly.",
+      studentLine:  "Okay so the edges are fine... then why do I still have a feeling something is wrong?",
+      showTeacher:  true,
+      highlightLine: null,
+      question:     "What happens at the boundary? When i equals exactly 5, does the loop include it and then stop cleanly?",
+      correctIsIssue: false,
+      goodInstinctLabel: "Good instinct — the edge is clean",
+      goodInstinctBody:  "When i = 5 the condition i &lt;= 5 is true, so it runs one more time and then i becomes 6 and the loop stops. The boundary is handled correctly. The real problem is hiding somewhere else.",
+      checkAgainLabel:   "Check again — the edge actually works here",
+      checkAgainBody:    "i &lt;= 5 correctly includes 5 and stops after. Nothing breaks at the boundary. Keep looking at the other checks to find where the real issue is.",
+      studentReactionCorrect:   "So the edges are fine. The bug has to be in how many times it actually runs.",
+      studentReactionIncorrect: "Oh okay, so the edge case is actually fine. The problem is somewhere else.",
+      consoleMsg:   null,
+      showBugTag:   false
+    },
+    {
+      title:        "Extra Iteration Check",
+      teacherLine:  "Count with me. Starting at 0 and going to 5 with i++, how many times does this loop actually run?",
+      studentLine:  "Wait... it prints 0 too? I did not ask for 0! The AI got it wrong!",
+      showTeacher:  true,
+      highlightLine:"line-3",
+      question:     "Does the loop run one extra time? Count the iterations — starting at <code>0</code> and ending at <code>5</code> with <code>i++</code>, how many times does the loop actually run?",
+      correctIsIssue: true,
+      goodInstinctLabel: "Good instinct — there is an extra iteration",
+      goodInstinctBody:  "Starting at 0 and going to 5 means the loop runs 6 times, printing 0, 1, 2, 3, 4, 5. Alex asked for 5 numbers and gets 6. This is the off-by-one error. The console output is now revealed.",
+      checkAgainLabel:   "Check again — there is an extra iteration",
+      checkAgainBody:    "Count again: i goes 0, 1, 2, 3, 4, 5. That is 6 iterations. The loop runs one extra time. This is the bug.",
+      studentReactionCorrect:   "Six times! I only wanted five numbers. The AI gave me one extra the whole time.",
+      studentReactionIncorrect: "Oh no, 0 through 5 is actually 6 numbers. I did not think about that.",
+      consoleMsg:   "revealed",
+      showBugTag:   true
+    },
+    {
+      title:        "Missing Iteration Check",
+      teacherLine:  "Good observation. The values 1 to 5 are all present. The issue is not missing iterations — it is the extra 0 at the start.",
+      studentLine:  "So it did not stop too early. It actually started too early!",
+      showTeacher:  true,
+      highlightLine: null,
+      question:     "Now that we know it runs 6 times, does it also miss any expected values? Is every number from 1 to 5 present in the output?",
+      correctIsIssue: false,
+      goodInstinctLabel: "Good instinct — nothing is missing",
+      goodInstinctBody:  "The numbers 1 through 5 are all there. The problem is not that it stops too early. The problem is that it starts too early, at 0, adding an extra value at the beginning.",
+      checkAgainLabel:   "Check again — nothing is actually missing",
+      checkAgainBody:    "Look at the output: 0, 1, 2, 3, 4, 5. All of 1 through 5 are there. The issue is the extra 0 at the start, not a missing value at the end.",
+      studentReactionCorrect:   "Right, 1 through 5 are all there. The loop did not stop too early, it just started in the wrong place.",
+      studentReactionIncorrect: "Oh, all the numbers I wanted are actually there. The problem is just that extra 0 at the beginning.",
+      consoleMsg:   null,
+      showBugTag:   false
+    },
+    {
+      title:        "Match Check",
+      teacherLine:  "Last step. Does the actual output match what Alex asked for? That is the final verdict.",
+      studentLine:  "I cannot believe I almost used that code! Thank you for teaching me this checklist.",
+      showTeacher:  true,
+      highlightLine:"line-actual",
+      question:     "Does the actual output match what Alex requested? He asked for <code>1, 2, 3, 4, 5</code>. The loop outputs <code>0, 1, 2, 3, 4, 5</code>. Do they match?",
+      correctIsIssue: true,
+      goodInstinctLabel: "Good instinct — the output does not match",
+      goodInstinctBody:  "The output is 0, 1, 2, 3, 4, 5. Alex asked for 1, 2, 3, 4, 5. They do not match. The fix is simple: change <code>i = 0</code> to <code>i = 1</code>. That is it.",
+      checkAgainLabel:   "Check again — the output does not match",
+      checkAgainBody:    "Compare carefully. Requested: 1, 2, 3, 4, 5. Actual: 0, 1, 2, 3, 4, 5. They are different. The code fails the final match test.",
+      studentReactionCorrect:   "The outputs are totally different! I would have shown my students the wrong result if I had not run these checks.",
+      studentReactionIncorrect: "Oh, they really do not match. The 0 at the start makes it a completely different result.",
+      consoleMsg:   null,
+      showBugTag:   false
+    }
+  ],
+
+  summaryEyebrow:   "Simulation Complete",
+  summaryTitle:     "Debugging Complete: Bug Found",
+  summarySub:       "You ran all 6 checks on Alex's AI-generated loop and identified the off-by-one error. Here is what you found.",
+  summaryImgAlt:    "Ms. Rivera, the teacher",
+  bugSectionLabel:  "The Bug",
+  bugSectionTitle:  "Off-by-one error: a classic AI mistake",
+  bugAILabel:       "// What the AI wrote",
+  bugFixLabel:      "// What it should be",
+  bugAIComment:     "// prints 0,1,2,3,4,5 (6 values)",
+  bugFixComment:    "// prints 1,2,3,4,5 (5 values)",
+  bugExplanation:   "The AI used <code>i = 0</code> and <code>i &lt;= 5</code>, a classic off-by-one error. Starting at <code>0</code> instead of <code>1</code> adds an extra iteration, printing 6 values instead of 5. Change <code>i = 0</code> to <code>i = 1</code> to fix it. AI tools make this mistake often because they default to zero-indexed logic, which is exactly why the Loop Verification Checklist exists.",
+  recapTitle:       "All 6 Checks",
+  legendIssue:      "Issue found",
+  legendPass:       "Passed",
+  recapChecks: [
+    { issue: true,  name: "First Value Test",        note: "Loop starts at <code>i = 0</code>, but Alex asked for values starting at 1. Already off before a single iteration runs." },
+    { issue: false, name: "Last Value Test",          note: "<code>i &lt;= 5</code> correctly stops after reaching 5. The upper boundary holds on its own." },
+    { issue: false, name: "Edge Test",                note: "The boundary condition at <code>i = 5</code> runs correctly and stops cleanly. No edge case failure." },
+    { issue: true,  name: "Extra Iteration Check",   note: "The loop runs 6 times (0 through 5), not 5. The off-by-one in the start value causes one extra unwanted iteration." },
+    { issue: false, name: "Missing Iteration Check", note: "Values 1 through 5 are all present in the output. No expected values are missing, just one extra value at the start." },
+    { issue: true,  name: "Match Check",             note: "Output is <code>0,1,2,3,4,5</code>, which does not match the requested <code>1,2,3,4,5</code>. The code fails the final match test." }
+  ],
+  issueLabel:       "Issue found",
+  passLabel:        "Passed",
+  takeawayName:     "Ms. Rivera",
+  takeawayQuote:    "Great detective work. The code looked right at first, but checks 1, 4, and 6 revealed the truth. This is exactly why we run the checklist before trusting AI output. Your students will hit this same wall.",
+  classroomLabel:   "Classroom Connection",
+  classroomText:    "When students say they are stuck, they have usually skipped <strong>Check 1 or Check 6</strong> and have not verified where the loop starts, or compared the output to what was actually asked for. The Loop Verification Checklist gives you a shared language to redirect them without giving away the answer.",
+  btnRestart:       "Run the Checklist Again",
+  restartNote:      "Iterating with AI · Debugging AI-Generated Loops"
+};
+</script>
+
+<!-- ══ SCREEN 1: INTRO ══ -->
+<div id="screen-intro" class="screen active" role="main" aria-labelledby="heroTitle">
+  <div class="intro-page" id="main-content">
+
+
+    <div class="hero" role="region" aria-labelledby="heroTitle">
+      <div class="hero-text">
+        <div class="hero-eyebrow" id="heroEyebrow"></div>
+        <h1 class="hero-title" id="heroTitle"></h1>
+        <p class="hero-sub" id="heroSub"></p>
+      </div>
+      <img class="hero-img" id="heroImg" src="" alt="" />
+    </div>
+
+    <div class="scenario-card" role="region" aria-label="Classroom scenario">
+      <div class="scenario-header">
+        <div class="scenario-header-label" id="scenarioLabel"></div>
+        <div class="scenario-header-title" id="scenarioHeader"></div>
+      </div>
+      <div class="scenario-body">
+        <img class="scenario-img" id="scenarioImg" src="" alt="" />
+        <div class="scenario-text">
+          <div class="scenario-scene-label" id="scenarioStudentLabel"></div>
+          <div class="scenario-quote" id="scenarioQuote" role="blockquote"></div>
+          <div class="scenario-body-text" id="scenarioBodyText"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="code-preview" role="region" aria-label="Alex's loop code">
+      <div class="code-preview-header">
+        <div class="cp-dot r" aria-hidden="true"></div>
+        <div class="cp-dot y" aria-hidden="true"></div>
+        <div class="cp-dot g" aria-hidden="true"></div>
+        <div class="cp-label">script.js — Alex's AI-generated loop</div>
+      </div>
+      <div class="code-preview-body" aria-label="for loop starting at i equals 0 up to and including 5">
+        <div><span class="cm" id="codeComment"></span></div>
+        <div>&nbsp;</div>
+        <div><span class="kw">for</span> <span class="punc">(</span><span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span><span class="punc">;</span> <span class="var">i</span> <span class="op">&lt;=</span> <span class="num">5</span><span class="punc">;</span> <span class="var">i</span><span class="op">++</span><span class="punc">)</span> <span class="punc">{</span></div>
+        <div>&nbsp;&nbsp;<span class="fn">console</span><span class="punc">.</span><span class="fn">log</span><span class="punc">(</span><span class="var">i</span><span class="punc">);</span></div>
+        <div><span class="punc">}</span></div>
+        <div>&nbsp;</div>
+        <div><span class="cm" id="codeExpected"></span></div>
+        <div><span class="cm" id="codeActual"></span></div>
+      </div>
+    </div>
+
+    <div class="mission-box" role="region" aria-label="Your mission">
+      <div class="mission-label" id="missionLabel"></div>
+      <div class="mission-grid" id="missionGrid" role="list" aria-label="The 6 checks"></div>
+      <div class="mission-divider"></div>
+      <div class="mission-desc" id="missionDesc"></div>
+    </div>
+
+    <button class="btn-start" id="startBtn" onclick="startActivity()"></button>
+    <div class="start-note" id="startNote"></div>
+
+  </div>
+</div>
+
+<!-- ══ SCREEN 2: ACTIVITY ══ -->
+<div id="screen-activity" class="screen" role="main" aria-label="Loop verification activity">
+
+  <div class="ide-panel" id="idePanel" role="region" aria-label="Code editor">
+    <div class="ide-topbar" aria-hidden="true">
+      <div class="ide-dots">
+        <div class="ide-dot r"></div><div class="ide-dot y"></div><div class="ide-dot g"></div>
+      </div>
+      <div class="ide-tabs">
+        <div class="ide-tab active"><div class="ide-tab-dot"></div>script.js</div>
+        <div class="ide-tab">index.html</div>
+      </div>
+    </div>
+    <div class="ide-body" role="code" aria-label="Alex's loop code">
+      <div class="code-line"><span class="line-num" aria-hidden="true">1</span><span class="line-code"><span class="cm" id="act-comment"></span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">2</span><span class="line-code"></span></div>
+      <div class="code-line" id="line-3"><span class="line-num" aria-hidden="true">3</span><span class="line-code"><span class="kw">for</span> <span class="punc">(</span><span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span><span class="punc">;</span> <span class="var">i</span> <span class="op">&lt;=</span> <span class="num">5</span><span class="punc">;</span> <span class="var">i</span><span class="op">++</span><span class="punc">)</span> <span class="punc">{</span></span><span class="bug-tag" id="bugTag"></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">4</span><span class="line-code">&nbsp;&nbsp;<span class="fn">console</span><span class="punc">.</span><span class="fn">log</span><span class="punc">(</span><span class="var">i</span><span class="punc">);</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">5</span><span class="line-code"><span class="punc">}</span></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">6</span><span class="line-code"></span></div>
+      <div class="code-line"><span class="line-num" aria-hidden="true">7</span><span class="line-code"><span class="cm" id="act-expected"></span></span></div>
+      <div class="code-line" id="line-actual"><span class="line-num" aria-hidden="true">8</span><span class="line-code"><span class="cm" id="act-actual"></span></span></div>
+    </div>
+    <div class="ide-console" role="region" aria-live="polite" aria-label="Console output">
+      <div class="console-label" id="consoleLabel"></div>
+      <div class="console-out" id="consoleOut"></div>
+    </div>
+  </div>
+
+  <div class="right-panel">
+
+    <div class="progress-wrap" role="region" aria-label="Progress">
+      <div class="progress-top">
+        <div class="progress-check-label" id="progressLabel" aria-live="polite"></div>
+        <div class="progress-unit-label" id="progressUnit"></div>
+      </div>
+      <div class="progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="progressBar">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+    </div>
+
+    <div class="char-area" role="region" aria-live="polite" aria-label="Character dialogue">
+      <img class="char-img" id="charImg" src="" alt="" />
+      <div>
+        <div class="char-name" id="charName"></div>
+        <div class="char-bubble" id="charBubble" role="blockquote"><span id="charText"></span></div>
+      </div>
+    </div>
+
+    <div class="check-card" role="region" aria-labelledby="checkTitle" id="checkCard">
+      <div class="check-card-header">
+        <div class="check-card-num" id="checkNum" aria-hidden="true"></div>
+        <div class="check-card-title" id="checkTitle"></div>
+      </div>
+      <div class="check-card-body">
+        <div class="check-question" id="checkQuestion"></div>
+        <div class="answer-btns" id="answerBtns" role="group" aria-label="Answer options">
+          <button class="btn-passes" id="btnPasses" onclick="answer(false)"></button>
+          <button class="btn-issue"  id="btnIssue"  onclick="answer(true)"></button>
+        </div>
+        <div class="feedback-banner" id="feedbackBanner" role="alert" aria-live="assertive">
+          <div class="feedback-icon" id="feedbackIcon" aria-hidden="true"></div>
+          <div>
+            <div class="feedback-label" id="feedbackLabel"></div>
+            <div class="feedback-body" id="feedbackBody"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-next" id="btnNext" onclick="nextCheck()"></button>
+  </div>
+</div>
+
+<!-- ══ SCREEN 3: SUMMARY ══ -->
+<div id="screen-summary" class="screen" role="main" aria-label="Summary of results">
+  <div class="summary-page">
+
+    <div class="completion-header" role="region" aria-label="Simulation complete">
+      <div class="completion-text">
+        <div class="completion-eyebrow" id="summaryEyebrow"></div>
+        <h1 class="completion-title" id="summaryTitle" tabindex="-1"></h1>
+        <p class="completion-sub" id="summarySub"></p>
+      </div>
+      <img class="completion-img" id="summaryImg" src="" alt="" />
+    </div>
+
+    <div class="bug-callout" role="region" aria-label="The bug explained">
+      <div class="bug-callout-header">
+        <div class="bug-callout-label" id="bugSectionLabel"></div>
+        <div class="bug-callout-title" id="bugSectionTitle"></div>
+      </div>
+      <div class="bug-callout-body">
+        <div class="bug-code-wrap" aria-label="Code comparison: bug versus fix">
+          <div><span class="cm" id="bugAILabel"></span></div>
+          <span class="bug-line"><span class="kw">for</span> <span class="punc">(</span><span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">0</span><span class="punc">;</span> <span class="var">i</span> <span class="op">&lt;=</span> <span class="num">5</span><span class="punc">;</span> <span class="var">i</span><span class="op">++</span><span class="punc">)</span> <span class="punc">{</span> <span class="cm" id="bugAIComment"></span></span>
+          <div>&nbsp;</div>
+          <div><span class="cm" id="bugFixLabel"></span></div>
+          <span class="fix-line"><span class="kw">for</span> <span class="punc">(</span><span class="kw">let</span> <span class="var">i</span> <span class="op">=</span> <span class="num">1</span><span class="punc">;</span> <span class="var">i</span> <span class="op">&lt;=</span> <span class="num">5</span><span class="punc">;</span> <span class="var">i</span><span class="op">++</span><span class="punc">)</span> <span class="punc">{</span> <span class="cm" id="bugFixComment"></span></span>
+        </div>
+        <div class="bug-explanation" id="bugExplanation"></div>
+      </div>
+    </div>
+
+    <div class="recap-card" role="region" aria-label="All 6 checks recap">
+      <div class="recap-header">
+        <div class="recap-title" id="recapTitle"></div>
+        <div class="recap-legend">
+          <div class="legend-item"><div class="legend-dot issue" aria-hidden="true"></div><span id="legendIssue"></span></div>
+          <div class="legend-item"><div class="legend-dot pass"  aria-hidden="true"></div><span id="legendPass"></span></div>
+        </div>
+      </div>
+      <div class="recap-list" id="recapList" role="list"></div>
+    </div>
+
+    <div class="takeaway-card" role="region" aria-label="Teacher takeaway">
+      <img class="takeaway-img" id="takeawayImg" src="" alt="" />
+      <div>
+        <div class="takeaway-name" id="takeawayName"></div>
+        <div class="takeaway-quote" id="takeawayQuote" role="blockquote"></div>
+      </div>
+    </div>
+
+    <div class="classroom-box" role="note" aria-label="Classroom connection">
+      <div class="classroom-label" id="classroomLabel"></div>
+      <div class="classroom-text" id="classroomText"></div>
+    </div>
+
+    <div class="sum-divider"></div>
+
+    <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+      <button class="btn-restart" id="btnRestart" onclick="restartActivity()"></button>
+      <div class="restart-note" id="restartNote"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ── STATE ── */
+let current = 0;
+let answered = false;
+
+/* ── ANNOUNCE ── */
+function announce(msg) {
+  const el = document.getElementById('liveRegion');
+  el.textContent = '';
+  setTimeout(() => { el.textContent = msg; }, 60);
+}
+
+/* ── APPLY LANG ── */
+function applyLang() {
+  const L = LANG;
+  document.title = L.pageTitle;
+
+  // Intro
+
+  document.getElementById('heroEyebrow').textContent   = L.heroEyebrow;
+  document.getElementById('heroTitle').textContent     = L.heroTitle;
+  document.getElementById('heroSub').textContent       = L.heroSub;
+  document.getElementById('heroImg').src               = L.teacherImgUrl;
+  document.getElementById('heroImg').alt               = L.heroImgAlt;
+  document.getElementById('scenarioLabel').textContent = L.scenarioLabel;
+  document.getElementById('scenarioHeader').textContent= L.scenarioHeader;
+  document.getElementById('scenarioImg').src           = L.studentImgUrl;
+  document.getElementById('scenarioImg').alt           = L.scenarioImgAlt;
+  document.getElementById('scenarioStudentLabel').textContent = L.scenarioStudentLabel;
+  document.getElementById('scenarioQuote').textContent = L.scenarioQuote;
+  document.getElementById('scenarioBodyText').innerHTML= L.scenarioBodyText;
+  document.getElementById('codeComment').textContent   = L.codeComment;
+  document.getElementById('codeExpected').textContent  = L.codeExpected;
+  document.getElementById('codeActual').textContent    = L.codeActual;
+  document.getElementById('missionLabel').textContent  = L.missionLabel;
+  document.getElementById('missionDesc').innerHTML     = L.missionDesc;
+  document.getElementById('startBtn').textContent      = L.startBtn;
+  document.getElementById('startNote').textContent     = L.startNote;
+
+  // Mission grid
+  const grid = document.getElementById('missionGrid');
+  grid.innerHTML = '';
+  L.missionSteps.forEach((s, i) => {
+    const el = document.createElement('div');
+    el.className = 'mission-step'; el.setAttribute('role','listitem');
+    el.innerHTML = '<div class="mission-step-num" aria-hidden="true">' + (i+1) + '</div>' + s;
+    grid.appendChild(el);
+  });
+
+  // Activity static
+  document.getElementById('act-comment').textContent  = L.codeComment;
+  document.getElementById('act-expected').textContent = L.codeExpected;
+  document.getElementById('act-actual').textContent   = L.codeActual;
+  document.getElementById('bugTag').textContent       = L.bugTagLabel;
+  document.getElementById('consoleLabel').textContent = L.consoleLabel;
+  document.getElementById('consoleOut').textContent   = L.consoleInitial;
+  document.getElementById('progressUnit').textContent = L.progressUnit;
+
+  // Summary
+  document.getElementById('summaryEyebrow').textContent  = L.summaryEyebrow;
+  document.getElementById('summaryTitle').textContent    = L.summaryTitle;
+  document.getElementById('summarySub').textContent      = L.summarySub;
+  document.getElementById('summaryImg').src              = L.teacherImgUrl;
+  document.getElementById('summaryImg').alt              = L.summaryImgAlt;
+  document.getElementById('bugSectionLabel').textContent = L.bugSectionLabel;
+  document.getElementById('bugSectionTitle').textContent = L.bugSectionTitle;
+  document.getElementById('bugAILabel').textContent      = L.bugAILabel;
+  document.getElementById('bugAIComment').textContent    = L.bugAIComment;
+  document.getElementById('bugFixLabel').textContent     = L.bugFixLabel;
+  document.getElementById('bugFixComment').textContent   = L.bugFixComment;
+  document.getElementById('bugExplanation').innerHTML    = L.bugExplanation;
+  document.getElementById('recapTitle').textContent      = L.recapTitle;
+  document.getElementById('legendIssue').textContent     = L.legendIssue;
+  document.getElementById('legendPass').textContent      = L.legendPass;
+  document.getElementById('takeawayImg').src             = L.teacherImgUrl;
+  document.getElementById('takeawayImg').alt             = L.teacherImgAlt;
+  document.getElementById('takeawayName').textContent    = L.takeawayName;
+  document.getElementById('takeawayQuote').textContent   = L.takeawayQuote;
+  document.getElementById('classroomLabel').textContent  = L.classroomLabel;
+  document.getElementById('classroomText').innerHTML     = L.classroomText;
+  document.getElementById('btnRestart').textContent      = '↺ ' + L.btnRestart;
+  document.getElementById('restartNote').textContent     = L.restartNote;
+
+  // Recap list
+  const list = document.getElementById('recapList');
+  list.innerHTML = '';
+  L.recapChecks.forEach((c, i) => {
+    const row = document.createElement('div');
+    row.className = 'recap-row'; row.setAttribute('role','listitem');
+    row.setAttribute('aria-label', (c.issue ? L.issueLabel : L.passLabel) + '. Check ' + (i+1) + ': ' + c.name + '. ' + c.note.replace(/<[^>]*>/g,''));
+    row.innerHTML =
+      '<div class="recap-indicator ' + (c.issue ? 'issue' : 'pass') + '" aria-hidden="true">' + (i+1) + '</div>' +
+      '<div class="recap-content">' +
+        '<div class="recap-check-name">' + c.name + ' <span class="recap-badge ' + (c.issue ? 'issue' : 'pass') + '">' + (c.issue ? L.issueLabel : L.passLabel) + '</span></div>' +
+        '<div class="recap-note">' + c.note + '</div>' +
+      '</div>';
+    list.appendChild(row);
+  });
+}
+
+/* ── START ── */
+function startActivity() {
+  document.getElementById('screen-intro').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  renderCheck(0);
+  announce('Activity started. Check 1 of 6: ' + LANG.checks[0].title);
+}
+
+/* ── RENDER CHECK ── */
+function renderCheck(idx) {
+  answered = false;
+  const c = LANG.checks[idx];
+
+  // Progress
+  const pct = Math.round((idx / 6) * 100);
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressBar').setAttribute('aria-valuenow', pct);
+  const progText = LANG.progressOf.replace('{n}', idx + 1) + ' — ' + c.title;
+  document.getElementById('progressLabel').textContent = progText;
+
+  // Check card
+  document.getElementById('checkNum').textContent   = 'Check ' + (idx + 1) + ' of 6';
+  document.getElementById('checkTitle').textContent = c.title;
+  document.getElementById('checkTitle').setAttribute('id','checkTitle');
+  document.getElementById('checkQuestion').innerHTML = c.question;
+
+  // Buttons
+  document.getElementById('btnPasses').textContent = LANG.btnPasses;
+  document.getElementById('btnPasses').setAttribute('aria-label', LANG.btnPassesAriaPrefix.replace('{title}', c.title));
+  document.getElementById('btnIssue').textContent  = LANG.btnIssue;
+  document.getElementById('btnIssue').setAttribute('aria-label', LANG.btnIssueAriaPrefix.replace('{title}', c.title));
+  document.getElementById('answerBtns').style.display = 'flex';
+
+  // Reset feedback
+  const fb = document.getElementById('feedbackBanner');
+  fb.className = 'feedback-banner';
+  fb.innerHTML = '';
+  fb.innerHTML = '<div class="feedback-icon" id="feedbackIcon" aria-hidden="true"></div><div><div class="feedback-label" id="feedbackLabel"></div><div class="feedback-body" id="feedbackBody"></div></div>';
+
+  // Next button
+  const btnNext = document.getElementById('btnNext');
+  btnNext.className = 'btn-next';
+  btnNext.textContent = idx < 5 ? LANG.btnNext : LANG.btnSeeResults;
+
+  // Character
+  setChar(c.showTeacher);
+
+  // Highlights
+  clearHighlights();
+  if (c.highlightLine) document.getElementById(c.highlightLine).classList.add('hl-purple');
+
+  // Bug tag
+  if (!c.showBugTag) document.getElementById('bugTag').classList.remove('show');
+}
+
+function setChar(isTeacher, reactionText) {
+  const c = LANG.checks[current];
+  const img    = document.getElementById('charImg');
+  const name   = document.getElementById('charName');
+  const bubble = document.getElementById('charBubble');
+  const text   = document.getElementById('charText');
+
+  if (reactionText) {
+    img.src = LANG.studentImgUrl; img.alt = LANG.studentImgAlt;
+    name.className = 'char-name student';
+    name.textContent = LANG.studentName;
+    bubble.className = 'char-bubble';
+    text.textContent = reactionText;
+  } else if (isTeacher) {
+    img.src = LANG.teacherImgUrl; img.alt = LANG.teacherImgAlt;
+    name.className = 'char-name teacher';
+    name.textContent = LANG.teacherName;
+    bubble.className = 'char-bubble teacher-bubble';
+    text.textContent = c.teacherLine;
+  } else {
+    img.src = LANG.studentImgUrl; img.alt = LANG.studentImgAlt;
+    name.className = 'char-name student';
+    name.textContent = LANG.studentName;
+    bubble.className = 'char-bubble';
+    text.textContent = c.studentLine;
+  }
+}
+
+function clearHighlights() {
+  document.querySelectorAll('.code-line').forEach(l => l.classList.remove('hl-purple','hl-green'));
+}
+
+/* ── ANSWER ── */
+function answer(userSaidIssue) {
+  if (answered) return;
+  answered = true;
+  const c = LANG.checks[current];
+  const isCorrect = (userSaidIssue === c.correctIsIssue);
+
+  document.getElementById('answerBtns').style.display = 'none';
+
+  // Feedback
+  const fb = document.getElementById('feedbackBanner');
+  document.getElementById('feedbackIcon').textContent  = isCorrect ? '💡' : '🔍';
+  document.getElementById('feedbackLabel').textContent = isCorrect ? c.goodInstinctLabel : c.checkAgainLabel;
+  document.getElementById('feedbackBody').innerHTML    = isCorrect ? c.goodInstinctBody  : c.checkAgainBody;
+  fb.classList.add('show');
+
+  // Console reveal
+  if (c.consoleMsg === 'revealed') {
+    const out = document.getElementById('consoleOut');
+    out.innerHTML = '<span class="revealed">0<br>1<br>2<br>3<br>4<br>5</span><br><span class="warn">// 6 values — expected 5</span>';
+    document.getElementById('act-actual').textContent = LANG.codeActualRevealed;
+    document.getElementById('bugTag').classList.add('show');
+    document.getElementById('line-3').classList.remove('hl-purple');
+    document.getElementById('line-3').classList.add('hl-purple');
+    document.getElementById('line-actual').classList.add('hl-purple');
+  }
+
+  // Student reaction
+  const reaction = isCorrect ? c.studentReactionCorrect : c.studentReactionIncorrect;
+  setTimeout(() => setChar(false, reaction), 1200);
+
+  announce((isCorrect ? c.goodInstinctLabel : c.checkAgainLabel) + '. ' + (isCorrect ? c.goodInstinctBody : c.checkAgainBody).replace(/<[^>]*>/g,''));
+
+  document.getElementById('btnNext').classList.add('show');
+  document.getElementById('btnNext').focus();
+}
+
+/* ── NEXT ── */
+function nextCheck() {
+  current++;
+  if (current >= 6) {
+    showSummary();
+  } else {
+    renderCheck(current);
+    announce(LANG.progressOf.replace('{n}', current + 1) + '. ' + LANG.checks[current].title);
+    document.getElementById('checkTitle').focus();
+  }
+}
+
+/* ── SUMMARY ── */
+function showSummary() {
+  document.getElementById('screen-activity').classList.remove('active');
+  document.getElementById('screen-summary').classList.add('active');
+  announce(LANG.summaryTitle);
+  setTimeout(() => document.getElementById('summaryTitle').focus(), 100);
+}
+
+/* ── RESTART ── */
+function restartActivity() {
+  current = 0; answered = false;
+  clearHighlights();
+  document.getElementById('bugTag').classList.remove('show');
+  document.getElementById('consoleOut').textContent = LANG.consoleInitial;
+  document.getElementById('act-actual').textContent = LANG.codeActual;
+  document.getElementById('screen-summary').classList.remove('active');
+  document.getElementById('screen-activity').classList.add('active');
+  renderCheck(0);
+  announce('Activity restarted. Check 1 of 6.');
+}
+
+applyLang();
+</script>
+</body>
+</html>
