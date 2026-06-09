@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SongSurfer Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Press Start 2P', cursive;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      background-color: #1a1a2e;
+      padding: 20px;
+      color: #00ff00;
+      text-shadow: 0 0 5px #00ff00;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 960px;
+      background-color: rgba(0,0,0,0.7);
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 0 15px #ff00ff;
+      border: 2px solid #00ffff;
+    }
+
+    .app-title {
+      font-size: 2.5rem;
+      margin-bottom: 30px;
+      color: #ffea00;
+      text-shadow: 0 0 10px #ffea00, 0 0 20px #ffea00;
+      text-align: center;
+    }
+
+    .filter-section {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 40px;
+      width: 100%;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .filter-dropdown {
+      font-family: 'Press Start 2P', cursive;
+      padding: 10px 30px 10px 12px;
+      border: 2px solid #00ffff;
+      border-radius: 5px;
+      background-color: #333;
+      color: #00ff00;
+      font-size: 0.65rem;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22 width%3D%22292.4%22 height%3D%22292.4%22%3E%3Cpath fill%3D%22%2300FF00%22 d%3D%22M287 69.4a17.6 17.6 0 0 0-13-5.4H18.4c-6.5 0-12.3 3.2-16.1 8.1-3.8 4.9-4.9 11.6-3.1 17.9L139.6 275.4a17.6 17.6 0 0 0 29.2 0L300.7 90.8c1.8-6.3.7-13-3.1-17.9z%22%2F%3E%3C%2Fsvg%3E');
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      background-size: 10px;
+      box-shadow: 0 0 8px #00ff00;
+      transition: box-shadow 0.2s;
+    }
+
+    .filter-dropdown:hover { background-color: #555; box-shadow: 0 0 12px #00ff00; }
+    .filter-dropdown:focus  { outline: none; border-color: #ff00ff; box-shadow: 0 0 15px #ff00ff; }
+
+    .song-count {
+      font-size: 0.75rem;
+      color: #ff00ff;
+      text-shadow: 0 0 5px #ff00ff;
+      white-space: nowrap;
+    }
+
+    .song-display {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 30px;
+      width: 100%;
+      justify-items: center;
+    }
+
+    .song-card {
+      width: 160px;
+      height: 160px;
+      border: 2px solid #00ffff;
+      border-radius: 50%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 16px;
+      background-color: rgba(0,0,0,0.5);
+      box-shadow: 0 0 10px #00ff00;
+      cursor: pointer;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .song-card:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 20px #ff00ff;
+    }
+
+    .song-title {
+      font-size: 0.7rem;
+      font-weight: bold;
+      color: #ffea00;
+      text-shadow: 0 0 5px #ffea00;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .artist-name {
+      font-size: 0.55rem;
+      color: #00ffff;
+      text-shadow: 0 0 3px #00ffff;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .genre-mood {
+      font-size: 0.5rem;
+      color: #ff00ff;
+      text-shadow: 0 0 3px #ff00ff;
+      line-height: 1.4;
+    }
+
+    .no-results {
+      font-size: 0.7rem;
+      color: #ff00ff;
+      text-shadow: 0 0 5px #ff00ff;
+      text-align: center;
+      padding: 40px;
+      grid-column: 1 / -1;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .song-card, .filter-dropdown { transition: none; }
+    }
+
+    @media (max-width: 600px) {
+      .app-title { font-size: 1.5rem; }
+      .filter-section { flex-direction: column; gap: 10px; }
+      .filter-dropdown { width: 100%; }
+      .song-display { grid-template-columns: 1fr 1fr; gap: 16px; }
+      .song-card { width: 130px; height: 130px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1 class="app-title">SongSurfer</h1>
+
+    <div class="filter-section">
+      <select id="artist-filter" class="filter-dropdown">
+        <option value="">All Artists</option>
+        <option value="Ramones">Ramones</option>
+        <option value="The Runaways">The Runaways</option>
+        <option value="Lo-fi Fruits Music">Lo-fi Fruits Music</option>
+        <option value="Chillhop Music">Chillhop Music</option>
+      </select>
+
+      <select id="genre-filter" class="filter-dropdown">
+        <option value="">All Genres</option>
+        <option value="Punk">Punk</option>
+        <option value="Lo-fi">Lo-fi</option>
+      </select>
+
+      <select id="mood-filter" class="filter-dropdown">
+        <option value="">All Moods</option>
+        <option value="Energetic">Energetic</option>
+        <option value="Rebellious">Rebellious</option>
+        <option value="Relaxing">Relaxing</option>
+        <option value="Calm">Calm</option>
+      </select>
+
+      <span class="song-count" id="song-count">4 songs</span>
+    </div>
+
+    <div class="song-display" id="song-display"></div>
+  </div>
+
+  <script>
+    const allSongs = [
+      { title: "Blitzkrieg Bop",    artist: "Ramones",           genre: "Punk",  mood: "Energetic"  },
+      { title: "Cherry Bomb",       artist: "The Runaways",      genre: "Punk",  mood: "Rebellious" },
+      { title: "Lo-fi Study Beats", artist: "Lo-fi Fruits Music",genre: "Lo-fi", mood: "Relaxing"   },
+      { title: "Coffee Shop Jazz",  artist: "Chillhop Music",    genre: "Lo-fi", mood: "Calm"       }
+    ];
+
+    const songDisplay  = document.getElementById('song-display');
+    const songCountSpan = document.getElementById('song-count');
+    const artistFilter = document.getElementById('artist-filter');
+    const genreFilter  = document.getElementById('genre-filter');
+    const moodFilter   = document.getElementById('mood-filter');
+
+    const createSongCard = (song) => {
+      const card = document.createElement('div');
+      card.classList.add('song-card');
+      card.innerHTML = `
+        <p class="song-title">${song.title}</p>
+        <p class="artist-name">${song.artist}</p>
+        <p class="genre-mood">${song.genre} | ${song.mood}</p>
+      `;
+      return card;
+    };
+
+    const displaySongs = (songs) => {
+      songDisplay.innerHTML = '';
+      if (songs.length === 0) {
+        const msg = document.createElement('p');
+        msg.classList.add('no-results');
+        msg.textContent = 'No songs match your filters.';
+        songDisplay.appendChild(msg);
+      } else {
+        songs.forEach(song => songDisplay.appendChild(createSongCard(song)));
+      }
+      const n = songs.length;
+      songCountSpan.textContent = `${n} song${n !== 1 ? 's' : ''}`;
+    };
+
+    const applyFilters = () => {
+      const artist = artistFilter.value;
+      const genre  = genreFilter.value;
+      const mood   = moodFilter.value;
+
+      const filtered = allSongs.filter(song => {
+        return (!artist || song.artist === artist)
+            && (!genre  || song.genre  === genre)
+            && (!mood   || song.mood   === mood);
+      });
+
+      displaySongs(filtered);
+    };
+
+    artistFilter.addEventListener('change', applyFilters);
+    genreFilter.addEventListener('change', applyFilters);
+    moodFilter.addEventListener('change', applyFilters);
+
+    displaySongs(allSongs);
+  </script>
+</body>
+</html>
