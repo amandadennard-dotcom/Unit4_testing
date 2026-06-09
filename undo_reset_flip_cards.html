@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Undo vs Reset Flip Cards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: transparent;
+    padding: 16px 8px;
+  }
+
+  .card-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .flip-card {
+    width: 320px;
+    height: 230px;
+    perspective: 1000px;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: inherit;
+    text-align: left;
+  }
+
+  .flip-card:focus-visible .flip-inner {
+    outline: 3px solid #6A62D9;
+    outline-offset: 4px;
+    border-radius: 16px;
+  }
+
+  .flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.55s cubic-bezier(0.4, 0.0, 0.2, 1);
+    transform-style: preserve-3d;
+  }
+
+  .flip-card.flipped .flip-inner {
+    transform: rotateY(180deg);
+  }
+
+  .flip-face {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* Front: dark purple */
+  .flip-front {
+    background: #4A4399;
+    background: linear-gradient(145deg, #554CB3 0%, #423B8C 100%);
+    color: #ffffff;
+    align-items: center;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .flip-front .emoji {
+    font-size: 40px;
+    line-height: 1;
+  }
+
+  .flip-front .term {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  .flip-front .hint {
+    position: absolute;
+    bottom: 14px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.65);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Back: white surface, purple frame */
+  .flip-back {
+    background: #ffffff;
+    border: 2px solid #6A62D9;
+    color: #2A2640;
+    transform: rotateY(180deg);
+    justify-content: flex-start;
+  }
+
+  .flip-back .back-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6A62D9;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+
+  .flip-back ul {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .flip-back li {
+    font-size: 15px;
+    line-height: 1.4;
+    padding-left: 18px;
+    position: relative;
+  }
+
+  .flip-back li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 7px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #6A62D9;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flip-inner { transition: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="card-row">
+
+  <button class="flip-card" aria-pressed="false" onclick="toggleCard(this)">
+    <div class="flip-inner">
+      <div class="flip-face flip-front">
+        <div class="emoji" aria-hidden="true">↩️</div>
+        <div class="term">Undo</div>
+        <div class="hint">Click to flip</div>
+      </div>
+      <div class="flip-face flip-back">
+        <div class="back-label">Undo</div>
+        <ul>
+          <li>Reverses the most recent change</li>
+          <li>Useful for small mistakes</li>
+          <li>Often repeatable (undo multiple steps)</li>
+        </ul>
+      </div>
+    </div>
+  </button>
+
+  <button class="flip-card" aria-pressed="false" onclick="toggleCard(this)">
+    <div class="flip-inner">
+      <div class="flip-face flip-front">
+        <div class="emoji" aria-hidden="true">🔄</div>
+        <div class="term">Reset</div>
+        <div class="hint">Click to flip</div>
+      </div>
+      <div class="flip-face flip-back">
+        <div class="back-label">Reset</div>
+        <ul>
+          <li>Restores the original starting point</li>
+          <li>Useful when users want a "clean slate"</li>
+          <li>Fast recovery from major changes</li>
+        </ul>
+      </div>
+    </div>
+  </button>
+
+</div>
+
+<script>
+  function toggleCard(card) {
+    card.classList.toggle('flipped');
+    card.setAttribute('aria-pressed', card.classList.contains('flipped'));
+  }
+</script>
+
+</body>
+</html>
